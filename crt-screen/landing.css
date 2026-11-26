@@ -482,13 +482,16 @@ html.is-lean .fx__band { animation: none; opacity: 0; }
   place-items: center;
   padding: var(--pad);
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  transition: opacity .45s ease;
+  transition: opacity .45s ease, visibility 0s linear .45s;
 }
 
 .story.is-open {
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
+  transition: opacity .45s ease, visibility 0s;
 }
 
 .story__scrim {
