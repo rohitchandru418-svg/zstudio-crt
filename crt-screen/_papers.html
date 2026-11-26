@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Papers — a standalone port of thomasgertenbach.com</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: #141311; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; }
+  body {
+    font: 10px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: .22em; text-transform: uppercase; color: #efe8dc;
+  }
+  .hud {
+    position: fixed; inset: auto 0 0 0; display: flex; align-items: baseline;
+    justify-content: space-between; gap: 24px; padding: 26px 30px;
+    pointer-events: none; mix-blend-mode: difference;
+  }
+  .hud b { font-weight: 500; letter-spacing: .3em; }
+  .hud span { color: #8f877b; }
+  .tag {
+    position: fixed; top: 26px; left: 30px; color: #8f877b; pointer-events: none;
+    mix-blend-mode: difference;
+  }
+  .tag em { color: #efe8dc; font-style: normal; }
+  /* his post chain has bloom and GTAO; this does the framing work cheaply */
+  body::after {
+    content: ''; position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(78% 68% at 50% 46%,
+      rgb(0 0 0 / 0) 40%, rgb(0 0 0 / .38) 78%, rgb(0 0 0 / .72) 100%);
+  }
+</style>
+</head>
+<body>
+<div class="tag">Papers <em>— port</em></div>
+<canvas id="stage"></canvas>
+<div class="hud">
+  <b>thomasgertenbach.com / prints</b>
+  <span>drag a print · move to stir the air</span>
+</div>
+
+<script type="module">
+import * as THREE from './vendor/three.module.min.js';
+
+/* Every number below is lifted from his scene defaults
+   (sceneControlDefaults / Counter.setupLights) so the lighting and the
+   material response are his, not an approximation. */
+const CFG = {
+  background: '#141311',
+  camera: { fov: 30, near: .1, far: 40, x: 0.35, y: 2.15, z: 5.5, lookY: 0.98 },
+  /* his values, except where noted: without his bloom + GTAO the same
+     numbers read darker, so exposure / ambient / env are nudged up */
+  exposure: 1.3,
+  ambient: { intensity: 1.9, color: '#eee5dc' },
+  key: {
+    intensity: 3.07, color: '#fff1df', x: 3.4, y: 6, z: -4.5,
+    mapSize: 2048, extent: 6.5, near: .82, far: 23.5,
+    bias: 5.3e-4, normalBias: .03, radius: 8, blurSamples: 8, intensityShadow: .86
+  },
+  fill: { intensity: .22, color: '#e5ebf5', x: -4.2, y: 5.5, z: -3.1 },
+  env: { intensity: .8 },
+  print: { width: .58, aspect: 768 / 960, roughness: .18, metalness: .1,
+           clearcoat: 1, clearcoatRoughness: .05, envMapIntensity: 2.8 },
+  polaroid: { padX: .07, padBottom: .2, padTop: .07 * (768 / 960) },
+  frame: '#f4efe6', inset: 'rgba(42,32,22,0.14)', ink: '#2a2218',
+  wind: { lift: .6, friction: 2.75, spin: 1.55, response: 11.5 }
+};
+
+const mulberry32 = (a) => () => {
+  a |= 0; a = a + 0x6D2B79F5 | 0;
+  let t = Math.imul(a ^ a >>> 15, 1 | a);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+  return ((t ^ t >>> 14) >>> 0) / 4294967296;
+};
+const hashText = (s) => {
+  let h = 0;
+  for (let i = 0; i < s.length; i += 1) h = h * 31 + s.charCodeAt(i) | 0;
+  return h;
+};
+
+/* --- paper ------------------------------------------------------------
+   His texture pass, minus the aging layers: warm stock, an inner window
+   printed #111 so the photo can sit in it, a hairline inset, a caption in
+   ink that is very slightly rotated (deterministic, from the title), and
+   a roughness map where the photo is glossier than the paper. */
+const WORKS = [
+  { title: 'Auremin', p: ['#8a6a3f', '#2a1d14', '#d8b473'] },
+  { title: 'Cinnamon', p: ['#6d3a24', '#180e09', '#c98a5a'] },
+  { title: 'Gielissen', p: ['#3f4a52', '#12161a', '#a8bcc9'] },
+  { title: 'Muuble', p: ['#5d5c4a', '#17170f', '#b8b795'] },
+  { title: 'Spyker', p: ['#33444a', '#0d1214', '#8fb3b8'] },
+  { title: 'Momiji', p: ['#5a2f33', '#170b0d', '#c07d72'] }
+];
+
+function paintPhoto(w, h, seed, palette) {
+  const cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  const ctx = cv.getContext('2d', { colorSpace: 'srgb' });
+  const r = mulberry32(seed);
+  const [mid, dark, light] = palette;
+  const horizon = h * (.52 + r() * .12);
+
+  /* wall, lit from up right */
+  const wall = ctx.createLinearGradient(0, 0, w * .8, horizon);
+  wall.addColorStop(0, dark);
+  wall.addColorStop(.55, mid);
+  wall.addColorStop(1, light);
+  ctx.fillStyle = wall;
+  ctx.fillRect(0, 0, w, horizon + 2);
+
+  /* table */
+  const table = ctx.createLinearGradient(0, horizon, 0, h);
+  table.addColorStop(0, mid);
+  table.addColorStop(1, dark);
+  ctx.fillStyle = table;
+  ctx.fillRect(0, horizon, w, h - horizon);
+
+  /* the object: a still life, one silhouette, never square to the lens */
+  const kind = Math.abs(seed >> 3) % 4;
+  const ox = w * (.36 + r() * .26);
+  const oy = horizon + (h - horizon) * .16;
+  const size = Math.min(w, h) * (.3 + r() * .18);
+  const body = ctx.createLinearGradient(ox - size, oy - size, ox + size, oy + size);
+  body.addColorStop(0, dark);
+  body.addColorStop(.62, mid);
+  body.addColorStop(1, light);
+
+  ctx.save();
+  ctx.beginPath();
+  if (kind === 0) {
+    ctx.arc(ox, oy - size * .1, size * .62, 0, Math.PI * 2);
+  } else if (kind === 1) {
+    const bw = size * .78, bh = size * 1.5;
+    ctx.roundRect(ox - bw / 2, oy - bh * .82, bw, bh, bw * .12);
+  } else if (kind === 2) {
+    const bw = size * .95;
+    ctx.moveTo(ox - bw / 2, oy + size * .3);
+    ctx.lineTo(ox - bw / 2, oy - size * .2);
+    ctx.quadraticCurveTo(ox, oy - size * 1.15, ox + bw / 2, oy - size * .2);
+    ctx.lineTo(ox + bw / 2, oy + size * .3);
+    ctx.closePath();
+  } else {
+    ctx.ellipse(ox, oy, size * .72, size * .5, -.08, 0, Math.PI * 2);
+  }
+  ctx.fillStyle = body;
+  ctx.fill();
+
+  /* the key catches one edge only */
+  ctx.strokeStyle = light;
+  ctx.globalAlpha = .5;
+  ctx.lineWidth = Math.max(1, size * .03);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  /* contact shadow, tighter than the cast one */
+  const cs = ctx.createRadialGradient(ox, oy + size * .42, 0, ox, oy + size * .42, size * 1.1);
+  cs.addColorStop(0, 'rgba(0,0,0,.55)');
+  cs.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.save();
+  ctx.translate(ox, oy + size * .42);
+  ctx.scale(1, .34);
+  ctx.fillStyle = cs;
+  ctx.beginPath();
+  ctx.arc(0, 0, size * 1.1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  /* grain */
+  const img = ctx.getImageData(0, 0, w, h);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const n = (r() - .5) * 30;
+    d[i] += n; d[i + 1] += n; d[i + 2] += n;
+  }
+  ctx.putImageData(img, 0, 0);
+
+  /* the falloff of a lens */
+  const vig = ctx.createRadialGradient(w / 2, h * .45, h * .18, w / 2, h / 2, h * .82);
+  vig.addColorStop(0, 'rgba(0,0,0,0)');
+  vig.addColorStop(1, 'rgba(0,0,0,.55)');
+  ctx.fillStyle = vig;
+  ctx.fillRect(0, 0, w, h);
+
+  return cv;
+}
+
+function makePaper(work, index, W = 768, H = 960) {
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d', { colorSpace: 'srgb' });
+  const seed = hashText(work.title || `polaroid`);
+
+  ctx.fillStyle = CFG.frame;
+  ctx.fillRect(0, 0, W, H);
+
+  const padX = W * CFG.polaroid.padX;
+  const padTop = H * CFG.polaroid.padTop;
+  const padBottom = H * CFG.polaroid.padBottom;
+  const iw = W - padX * 2;
+  const ih = H - padTop - padBottom;
+
+  /* stock is never flat: it falls warm to cool and carries a fibre */
+  const stock = ctx.createLinearGradient(0, 0, W * .3, H);
+  stock.addColorStop(0, 'rgba(255,252,244,.55)');
+  stock.addColorStop(.5, 'rgba(244,239,230,0)');
+  stock.addColorStop(1, 'rgba(196,186,168,.35)');
+  ctx.fillStyle = stock;
+  ctx.fillRect(0, 0, W, H);
+
+  const fib = mulberry32(seed + index);
+  ctx.globalAlpha = .05;
+  for (let i = 0; i < 1400; i += 1) {
+    ctx.fillStyle = fib() > .5 ? '#ffffff' : '#3a342b';
+    ctx.fillRect(fib() * W, fib() * H, 1 + fib() * 12, 1);
+  }
+  ctx.globalAlpha = 1;
+
+  /* photo window */
+  ctx.drawImage(paintPhoto(iw, ih, seed + index * 977, work.p), padX, padTop);
+  ctx.fillStyle = '#111';
+  ctx.globalAlpha = .12;
+  ctx.fillRect(padX, padTop, iw, ih);
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = CFG.inset;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(padX + .5, padTop + .5, iw - 1, ih - 1);
+
+  /* caption: centred in the bottom band, rotated a hair */
+  const bandMid = H - padBottom + padBottom * .46;
+  const maxWidth = W - padX * 2.15;
+  const size = H * .072;
+  ctx.save();
+  ctx.translate(W / 2, bandMid);
+  ctx.rotate((hashText(work.title) % 9 - 4) * .012);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = CFG.ink;
+  let fs = size;
+  do {
+    ctx.font = `500 ${fs}px "Helvetica Neue", Arial, sans-serif`;
+    fs -= 2;
+  } while (fs > 18 && ctx.measureText(work.title).width > maxWidth);
+  ctx.fillText(work.title, 0, padBottom * .02);
+  ctx.restore();
+
+  const map = new THREE.CanvasTexture(cv);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.anisotropy = 8;
+
+  /* photo glossier than paper */
+  const rw = 192, rh = Math.round(rw * H / W);
+  const rc = document.createElement('canvas');
+  rc.width = rw; rc.height = rh;
+  const rctx = rc.getContext('2d');
+  rctx.fillStyle = '#b0b0b0';
+  rctx.fillRect(0, 0, rw, rh);
+  rctx.fillStyle = '#101010';
+  rctx.fillRect(rw * CFG.polaroid.padX, rh * CFG.polaroid.padTop,
+                rw * (1 - CFG.polaroid.padX * 2),
+                rh * (1 - CFG.polaroid.padTop - CFG.polaroid.padBottom));
+  const roughnessMap = new THREE.CanvasTexture(rc);
+  roughnessMap.colorSpace = THREE.NoColorSpace;
+  roughnessMap.anisotropy = 8;
+
+  return { map, roughnessMap };
+}
+
+/* --- environment ------------------------------------------------------
+   His scene samples a PMREM of a night studio. Build one procedurally:
+   dark dome, one warm window right of the key, one cool bounce opposite. */
+function makeEnvironment(renderer) {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 256;
+  const g = c.getContext('2d');
+
+  const sky = g.createLinearGradient(0, 0, 0, 256);
+  sky.addColorStop(0, '#2b2c33');
+  sky.addColorStop(.48, '#191817');
+  sky.addColorStop(1, '#0a0a09');
+  g.fillStyle = sky;
+  g.fillRect(0, 0, 512, 256);
+
+  const glow = (x, y, rx, ry, color, alpha) => {
+    const grd = g.createRadialGradient(x, y, 0, x, y, Math.max(rx, ry));
+    grd.addColorStop(0, color);
+    grd.addColorStop(1, 'rgba(0,0,0,0)');
+    g.globalAlpha = alpha;
+    g.save(); g.translate(x, y); g.scale(rx / Math.max(rx, ry), ry / Math.max(rx, ry));
+    g.translate(-x, -y);
+    g.fillStyle = grd;
+    g.fillRect(x - rx * 2, y - ry * 2, rx * 4, ry * 4);
+    g.restore(); g.globalAlpha = 1;
+  };
+  glow(392, 74, 120, 74, '#fff4de', .9);   /* warm window, up right */
+  glow(96, 118, 96, 66, '#dfe8ff', .32);   /* cool bounce, up left */
+  glow(256, 236, 240, 40, '#0c0b0a', .8);  /* dark floor */
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const rt = pmrem.fromEquirectangular(tex);
+  tex.dispose();
+  pmrem.dispose();
+  return rt.texture;
+}
+
+/* --- floor ------------------------------------------------------------
+   His counter: plaster, matte, and only there to catch the shadow. */
+function makeFloor() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 512;
+  const g = c.getContext('2d');
+  g.fillStyle = '#3a3733';
+  g.fillRect(0, 0, 512, 512);
+  const r = mulberry32(7);
+  for (let i = 0; i < 260; i += 1) {
+    const x = r() * 512, y = r() * 512, rad = 12 + r() * 90;
+    const grd = g.createRadialGradient(x, y, 0, x, y, rad);
+    const tone = r() > .5 ? '255,248,236' : '8,7,6';
+    grd.addColorStop(0, `rgba(${tone},${.03 + r() * .05})`);
+    grd.addColorStop(1, `rgba(${tone},0)`);
+    g.fillStyle = grd;
+    g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+  }
+  const img = g.getImageData(0, 0, 512, 512);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const n = (r() - .5) * 16;
+    img.data[i] += n; img.data[i + 1] += n; img.data[i + 2] += n;
+  }
+  g.putImageData(img, 0, 0);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2, 2);
+  return new THREE.Mesh(
+    new THREE.PlaneGeometry(18, 12),
+    new THREE.MeshStandardMaterial({ map: tex, color: '#8a8377', roughness: .96, metalness: 0 })
+  );
+}
+
+/* --- scene ------------------------------------------------------------ */
+const canvas = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.VSMShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = CFG.exposure;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(CFG.background);
+scene.fog = new THREE.Fog(0x141311, 9, 24);
+scene.environment = makeEnvironment(renderer);
+scene.environmentIntensity = CFG.env.intensity;
+
+const camera = new THREE.PerspectiveCamera(CFG.camera.fov, 1, CFG.camera.near, CFG.camera.far);
+camera.position.set(CFG.camera.x, CFG.camera.y, CFG.camera.z);
+camera.lookAt(0, CFG.camera.lookY, 0);
+
+scene.add(new THREE.AmbientLight(CFG.ambient.color, CFG.ambient.intensity));
+
+const key = new THREE.DirectionalLight(CFG.key.color, CFG.key.intensity);
+key.position.set(CFG.key.x, CFG.key.y, CFG.key.z);
+key.castShadow = true;
+key.shadow.mapSize.set(CFG.key.mapSize, CFG.key.mapSize);
+Object.assign(key.shadow.camera, {
+  near: CFG.key.near, far: CFG.key.far,
+  left: -CFG.key.extent, right: CFG.key.extent,
+  top: CFG.key.extent, bottom: -CFG.key.extent
+});
+key.shadow.camera.updateProjectionMatrix();
+key.shadow.bias = CFG.key.bias;
+key.shadow.normalBias = CFG.key.normalBias;
+key.shadow.radius = CFG.key.radius;
+key.shadow.blurSamples = CFG.key.blurSamples;
+key.shadow.intensity = CFG.key.intensityShadow;
+scene.add(key);
+
+const fill = new THREE.DirectionalLight(CFG.fill.color, CFG.fill.intensity);
+fill.position.set(CFG.fill.x, CFG.fill.y, CFG.fill.z);
+scene.add(fill);
+
+const floor = makeFloor();
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+/* his placement pass, hand-framed: six prints drifting in front of the
+   camera, none of them square to it */
+const LAYOUT = [
+  { x: -.86, y: 1.02, z: .32, yaw: .40, pitch: -.06, roll: -.05 },
+  { x: .52, y: 1.28, z: -.26, yaw: -.32, pitch: .05, roll: .04 },
+  { x: -.18, y: .80, z: .88, yaw: .16, pitch: -.16, roll: -.08 },
+  { x: 1.10, y: .96, z: .58, yaw: -.58, pitch: -.03, roll: .07 },
+  { x: -.06, y: 1.50, z: -.80, yaw: .24, pitch: .1, roll: -.03 },
+  { x: -1.32, y: 1.34, z: -.42, yaw: .70, pitch: .04, roll: .06 }
+];
+
+const W = CFG.print.width;
+const H = W / CFG.print.aspect;
+const geo = new THREE.PlaneGeometry(W, H);
+const prints = [];
+
+WORKS.forEach((work, i) => {
+  const { map, roughnessMap } = makePaper(work, i);
+  const material = new THREE.MeshPhysicalMaterial({
+    map, roughnessMap,
+    roughness: CFG.print.roughness,
+    metalness: CFG.print.metalness,
+    clearcoat: CFG.print.clearcoat,
+    clearcoatRoughness: CFG.print.clearcoatRoughness,
+    envMapIntensity: CFG.print.envMapIntensity,
+    side: THREE.DoubleSide
+  });
+  const mesh = new THREE.Mesh(geo, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+
+  const rest = LAYOUT[i];
+  if (/[?&]deal=0/.test(location.search)) {
+    mesh.position.set(rest.x, rest.y, rest.z);
+    mesh.rotation.set(rest.pitch, rest.yaw, rest.roll);
+  } else {
+    mesh.position.set(0, 1.02 + i * .005, .18);
+    mesh.rotation.set(0, (i - 2.5) * .02, 0);
+  }
+  scene.add(mesh);
+
+  prints.push({
+    mesh, rest,
+    deal: { from: mesh.position.clone(), rot: mesh.rotation.clone(), t0: .25 + i * .07, dur: .95 },
+    home: new THREE.Vector3(rest.x, rest.y, rest.z),
+    vel: new THREE.Vector3(),
+    spin: new THREE.Vector3(),
+    phase: i * 1.7,
+    hover: 0, drag: false
+  });
+});
+
+/* --- pointer: same feel as the site — lift on hover, push on a fast
+   swipe, spring back to the placement when released ------------------- */
+const pointer = { x: 0, y: 0, nx: 0, ny: 0, vx: 0, vy: 0, down: null, last: 0 };
+const ray = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+const plane = new THREE.Plane();
+const hit = new THREE.Vector3();
+
+function pick(e) {
+  const r = canvas.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const hits = ray.intersectObjects(prints.map(p => p.mesh), false);
+  return hits.length ? prints.find(p => p.mesh === hits[0].object) : null;
+}
+
+canvas.addEventListener('pointermove', (e) => {
+  const dt = Math.max(1 / 240, (performance.now() - pointer.last) / 1000);
+  pointer.last = performance.now();
+  pointer.nx = (e.clientX / window.innerWidth) * 2 - 1;
+  pointer.ny = (e.clientY / window.innerHeight) * 2 - 1;
+  pointer.vx = (pointer.nx - pointer.x) / dt;
+  pointer.vy = (pointer.ny - pointer.y) / dt;
+  pointer.x = pointer.nx;
+  pointer.y = pointer.ny;
+
+  const target = pick(e);
+  canvas.style.cursor = target ? 'grab' : 'default';
+
+  for (const p of prints) {
+    p.hoverTarget = p === target ? 1 : 0;
+  }
+
+  if (pointer.down) {
+    /* drag: slide on the camera-facing plane the card was grabbed on */
+    if (ray.ray.intersectPlane(plane, hit)) {
+      pointer.down.mesh.position.x = hit.x + pointer.down.offset.x;
+      pointer.down.mesh.position.y = hit.y + pointer.down.offset.y;
+      pointer.down.mesh.position.z = hit.z + pointer.down.offset.z;
+    }
+    canvas.style.cursor = 'grabbing';
+  }
+});
+
+canvas.addEventListener('pointerdown', (e) => {
+  const p = pick(e);
+  if (!p) return;
+  canvas.setPointerCapture(e.pointerId);
+  pointer.down = p;
+  p.drag = true;
+  plane.setFromNormalAndCoplanarPoint(
+    camera.getWorldDirection(new THREE.Vector3()).negate(),
+    p.mesh.position
+  );
+  ray.setFromCamera(ndc.set((e.clientX / window.innerWidth) * 2 - 1,
+    -(e.clientY / window.innerHeight) * 2 + 1), camera);
+  ray.ray.intersectPlane(plane, hit);
+  p.offset = p.mesh.position.clone().sub(hit);
+});
+
+const release = () => {
+  if (pointer.down) {
+    pointer.down.drag = false;
+    pointer.down = null;
+  }
+};
+canvas.addEventListener('pointerup', release);
+canvas.addEventListener('pointercancel', release);
+
+/* --- frame ------------------------------------------------------------ */
+const clock = new THREE.Clock();
+
+function frame() {
+  requestAnimationFrame(frame);
+  const dt = Math.min(clock.getDelta(), 1 / 30);
+  const t = clock.elapsedTime;
+
+  for (const p of prints) {
+    p.hover += ((p.hoverTarget || 0) - p.hover) * (1 - Math.exp(-CFG.wind.response * dt));
+
+    if (!p.drag && p.deal) {
+      /* the deck is dealt: one eased throw per print, then physics takes over */
+      const k = (t - p.deal.t0) / p.deal.dur;
+      if (k >= 1) {
+        p.deal = null;
+      } else if (k > 0) {
+        const e = 1 - Math.pow(1 - k, 3);
+        p.mesh.position.lerpVectors(p.deal.from, p.home, e);
+        p.mesh.rotation.set(
+          p.deal.rot.x + (p.rest.pitch - p.deal.rot.x) * e,
+          p.deal.rot.y + (p.rest.yaw - p.deal.rot.y) * e,
+          p.deal.rot.z + (p.rest.roll - p.deal.rot.z) * e
+        );
+        continue;
+      }
+    }
+
+    if (!p.drag) {
+      /* breathe: a slow float around the placement, plus the key's wind */
+      const sway = CFG.wind.lift * .06;
+      const fx = Math.sin(t * .41 + p.phase) * sway + Math.cos(t * .27 + p.phase * 2) * sway * .6;
+      const fy = Math.sin(t * .33 + p.phase * 1.3) * sway * .8;
+      const fz = Math.cos(t * .37 + p.phase * .7) * sway;
+
+      const wind = 2.6;
+      p.vel.x += ((p.home.x + fx + pointer.vx * .004) - p.mesh.position.x) * wind * dt;
+      p.vel.y += ((p.home.y + fy + p.hover * .1 - pointer.vy * .003) - p.mesh.position.y) * wind * dt;
+      p.vel.z += ((p.home.z + fz) - p.mesh.position.z) * wind * dt;
+      p.vel.multiplyScalar(1 - Math.min(1, CFG.wind.friction * dt));
+      p.mesh.position.addScaledVector(p.vel, dt);
+
+      const lean = CFG.wind.lift * .12;
+      p.mesh.rotation.y += (p.rest.yaw - p.mesh.rotation.y) * (1 - Math.exp(-4 * dt));
+      p.mesh.rotation.x += ((p.rest.pitch - pointer.ny * lean) - p.mesh.rotation.x) * (1 - Math.exp(-4 * dt));
+      p.mesh.rotation.z += ((p.rest.roll + pointer.nx * lean * .6) - p.mesh.rotation.z) * (1 - Math.exp(-4 * dt));
+    }
+  }
+
+  renderer.render(scene, camera);
+}
+
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+resize();
+frame();
+
+/* a hook for the page that embeds this */
+window.__papers = { scene, camera, prints, renderer };
+</script>
+</body>
+</html>
