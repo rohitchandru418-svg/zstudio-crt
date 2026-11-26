@@ -17,10 +17,15 @@ Plain HTML, CSS and Canvas 2D. No build step, no dependencies, no framework.
 cd crt-screen && python3 -m http.server 12000
 ```
 
-## Deploy
+## Deploy to Render
 
-`render.yaml` defines a static site publishing `./crt-screen`.
+`render.yaml` describes a static site that publishes `./crt-screen`. There is no build
+step, no dependencies, and no server — Render serves the files as they are.
 
-- Build command: none
-- Publish directory: `crt-screen`
-- Branch: `zstudio-crt`
+1. Push this repo to GitHub.
+2. Render dashboard → **New → Blueprint** → pick the repo → **Apply**.
+
+Or create the service by hand: **New → Static Site**, connect the repo, leave
+**Build Command** empty, set **Publish Directory** to `crt-screen`.
+
+Service type: `web` · runtime: `static` · plan: Free.
