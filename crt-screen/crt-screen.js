@@ -90,6 +90,11 @@
 
     // keep the content box exactly the window size
     content.style.clipPath = 'path("' + inner + '")';
+
+    // the HUD positions itself against the glass edge, not the viewport
+    var rootStyle = document.documentElement.style;
+    rootStyle.setProperty('--crt-corner', m.corner + 'px');
+    rootStyle.setProperty('--crt-mid', m.mid + 'px');
   }
 
   function schedule() {

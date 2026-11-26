@@ -68,9 +68,11 @@ body {
 
 .hud__top {
   position: absolute;
-  top: var(--top);
-  left: calc(var(--pad) + 14px);
-  right: calc(var(--pad) + 14px);
+  /* measured from the glass edge: the top bows 30px at the centre, so a
+     viewport-relative offset would sit in the vignette at the corners */
+  top: calc(var(--crt-corner, 38px) + 48px);
+  left: calc(var(--crt-corner, 38px) + 54px);
+  right: calc(var(--crt-corner, 38px) + 54px);
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -79,11 +81,13 @@ body {
 
 .brand {
   justify-self: start;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 500;
   letter-spacing: .01em;
   text-decoration: none;
   color: var(--paper);
+  /* phosphor bloom: the glass edge vignette eats flat type up here */
+  text-shadow: 0 0 24px rgb(255 244 226 / .16);
 }
 
 /* sound toggle */
@@ -92,11 +96,12 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
+  padding: 8px 10px;
   margin: -8px 0;
   border: 0;
   background: none;
-  color: var(--paper-55);
+  color: var(--paper-70);
+  text-shadow: 0 0 20px rgb(255 244 226 / .12);
   cursor: pointer;
   transition: color .35s ease, opacity .35s ease;
 }
@@ -120,13 +125,6 @@ body {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-6px); }
 }
-.sound__label {
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  letter-spacing: .18em;
-  text-transform: uppercase;
-}
-
 /* menu button */
 .menu-open {
   justify-self: end;
@@ -135,6 +133,7 @@ body {
   padding: 8px 0;
   margin: -8px 0;
   color: var(--paper);
+  text-shadow: 0 0 20px rgb(255 244 226 / .14);
   font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: .18em;
@@ -418,7 +417,6 @@ body {
   .hero__title { font-size: clamp(30px, 8.6vw, 44px); }
   .hero__text { font-size: 14px; margin: 18px auto 24px; }
   .hero__eyebrow { font-size: 9px; letter-spacing: .16em; }
-  .sound__label { display: none; }
   .sound__wave { width: 36px; }
   .slot__label { font-size: 9px; }
 }

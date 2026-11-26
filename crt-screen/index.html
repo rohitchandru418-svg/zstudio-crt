@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="crt-screen.css">
+<link rel="stylesheet" href="crt-screen.css?v=9">
 <style>
   /* boot curtain — inline so it paints before any other request resolves */
   .boot {
@@ -40,7 +40,8 @@
     .boot, .boot__bar i, .boot__label { transition-duration: .01ms; }
   }
 </style>
-<link rel="stylesheet" href="landing.css?v=75">
+<link rel="stylesheet" href="landing.css?v=78">
+<link rel="stylesheet" href="marvin.css?v=6">
 </head>
 <body>
   <div class="boot" id="boot" aria-hidden="true">
@@ -92,7 +93,6 @@
               <svg class="sound__wave" viewBox="0 0 56 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
                 <path d="M3 10 Q 8 3 13 10 T 23 10 T 33 10 T 43 10 T 53 10"/>
               </svg>
-              <span class="sound__label">Sound</span>
             </button>
 
             <button class="menu-open" id="menuOpen" type="button" aria-expanded="false" aria-controls="menu">Menu</button>
@@ -199,6 +199,7 @@
   </div>
 
   <script src="crt-screen.js"></script>
-  <script src="landing.js?v=75"></script>
+  <script src="landing.js?v=77"></script>
+  <script src="marvin.js?v=7" defer></script>
 </body>
 </html>

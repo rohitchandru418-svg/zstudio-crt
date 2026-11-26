@@ -1155,15 +1155,17 @@
       master.connect(ac.destination);
 
       ambient = ac.createGain();
-      ambient.gain.value = 0.9;
+      ambient.gain.value = 1;
       ambient.connect(master);
 
-      [55, 82.5].forEach(function (f, i) {
+      /* the harmonic ladder is what makes this audible on laptop and phone
+         speakers — a bare 55 Hz fundamental is silent on both */
+      [[55, 0.042], [110, 0.026], [165, 0.015], [220, 0.008]].forEach(function (p) {
         var o = ac.createOscillator();
         o.type = 'sine';
-        o.frequency.value = f;
+        o.frequency.value = p[0];
         var g = ac.createGain();
-        g.gain.value = i ? 0.016 : 0.026;
+        g.gain.value = p[1];
         o.connect(g);
         g.connect(ambient);
         o.start();
@@ -1174,10 +1176,10 @@
       bed.loop = true;
       var lp = ac.createBiquadFilter();
       lp.type = 'lowpass';
-      lp.frequency.value = 420;
+      lp.frequency.value = 900;
       lp.Q.value = 0.4;
       var bedGain = ac.createGain();
-      bedGain.gain.value = 0.05;
+      bedGain.gain.value = 0.26;
       bed.connect(lp);
       lp.connect(bedGain);
       bedGain.connect(ambient);
@@ -1196,7 +1198,7 @@
       src.loop = true;
       windFilter = ac.createBiquadFilter();
       windFilter.type = 'bandpass';
-      windFilter.frequency.value = 520;
+      windFilter.frequency.value = 900;
       windFilter.Q.value = 0.8;
       windGain = ac.createGain();
       windGain.gain.value = 0;
@@ -1256,10 +1258,11 @@
       if (ac.state === 'suspended') ac.resume();
       enabled = true;
       master.gain.cancelScheduledValues(ac.currentTime);
-      master.gain.setTargetAtTime(0.62, ac.currentTime, 0.5);
+      master.gain.setTargetAtTime(0.9, ac.currentTime, 0.5);
       try { localStorage.setItem(PREF, '1'); } catch (e) {}
       paper(0.12);
-      blip(330, 0.18, 'sine', 0.05);
+      blip(392, 0.16, 'sine', 0.09);
+      setTimeout(function () { blip(587, 0.22, 'sine', 0.07); }, 90);
       setPressed(true);
     }
 
@@ -1298,9 +1301,9 @@
         if (!built || !windGain || !ac) return;
         var amount = enabled ? clamp(energy / 1500, 0, 1) : 0;
         var t = ac.currentTime;
-        windGain.gain.setTargetAtTime(amount * amount * 0.22, t, 0.12);
+        windGain.gain.setTargetAtTime(amount * amount * 0.32, t, 0.12);
         if (windPan) windPan.pan.setTargetAtTime(clamp(pan, -1, 1), t, 0.15);
-        if (windFilter) windFilter.frequency.setTargetAtTime(420 + amount * 520, t, 0.2);
+        if (windFilter) windFilter.frequency.setTargetAtTime(700 + amount * 700, t, 0.2);
       }
     };
   })();

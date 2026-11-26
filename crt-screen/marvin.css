@@ -1,0 +1,180 @@
+/* ============================================================
+   Marvin — the small CRT that lives in the corner.
+   Idle state only. The chat panel loads its own stylesheet.
+   ============================================================ */
+
+.marvin-dock {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 90;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: 14px;
+  pointer-events: none;
+}
+
+.marvin {
+  --m-cream: #efe8dc;
+  --m-muted: #8f877b;
+
+  pointer-events: auto;
+  position: relative;
+  width: 84px;
+  height: 84px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  display: block;
+  -webkit-tap-highlight-color: transparent;
+  transform: translateZ(0);
+}
+
+.marvin:focus-visible {
+  outline: 1px solid var(--m-cream);
+  outline-offset: 6px;
+  border-radius: 4px;
+}
+
+/* the bob lives on an inner node so hover scale doesn't fight it */
+.marvin__bob {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: translate3d(0, 0, 0);
+  animation: m-bob 5.6s cubic-bezier(.45, 0, .55, 1) infinite;
+  will-change: transform;
+}
+
+.marvin__body {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 92%;
+  transition: transform .34s cubic-bezier(.2, .8, .3, 1);
+  filter: drop-shadow(0 8px 16px rgb(0 0 0 / .55));
+}
+
+.marvin:hover .marvin__body,
+.marvin:focus-visible .marvin__body {
+  transform: scale(1.07);
+}
+
+@keyframes m-bob {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50%      { transform: translate3d(0, -5px, 0); }
+}
+
+.marvin svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+/* screen furniture */
+.marvin__scan {
+  fill: url(#mScan);
+  opacity: .5;
+}
+
+.marvin__glow { transition: opacity .5s ease; opacity: .7; }
+
+.marvin:hover .marvin__glow,
+.marvin:focus-visible .marvin__glow { opacity: 1; }
+
+.marvin__eyes { transform-box: fill-box; transform-origin: center; }
+
+.marvin__mouth { transition: d .2s ease; }
+
+/* hover / focus — eyes widen a touch */
+.marvin:hover .marvin__eyes,
+.marvin:focus-visible .marvin__eyes { transform: scaleY(1.14); }
+
+/* the label that slides in beside him */
+.marvin__label {
+  pointer-events: none;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  text-align: right;
+  white-space: nowrap;
+  color: #efe8dc;
+  opacity: .88;
+  transform: translate3d(0, 0, 0);
+  transition: opacity .3s ease, transform .3s cubic-bezier(.2, .8, .3, 1);
+}
+
+.marvin:hover + .marvin__label,
+.marvin:focus-visible + .marvin__label { opacity: 1; transform: translate3d(-3px, 0, 0); }
+
+/* the once-per-session nudge */
+.marvin__bubble {
+  position: absolute;
+  right: 6px;
+  bottom: calc(100% + 10px);
+  max-width: 200px;
+  padding: 9px 12px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  line-height: 1.45;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: #efe8dc;
+  background: #201d1a;
+  border: 1px solid rgb(239 232 220 / .18);
+  border-radius: 3px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / .5);
+  opacity: 0;
+  transform: translate3d(0, 6px, 0);
+  transition: opacity .45s ease, transform .45s cubic-bezier(.2, .8, .3, 1);
+  pointer-events: none;
+}
+
+.marvin__bubble::after {
+  content: "";
+  position: absolute;
+  right: 26px;
+  bottom: -4px;
+  width: 7px;
+  height: 7px;
+  background: #201d1a;
+  border-right: 1px solid rgb(239 232 220 / .18);
+  border-bottom: 1px solid rgb(239 232 220 / .18);
+  transform: rotate(45deg);
+}
+
+.marvin__bubble.is-on { opacity: 1; transform: translate3d(0, 0, 0); }
+
+/* one wobble, then still */
+.marvin__bob.is-nudging { animation: m-nudge 1.5s cubic-bezier(.36, .07, .19, .97); }
+
+@keyframes m-nudge {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0); }
+  12%  { transform: translate3d(-2px, -3px, 0) rotate(-4deg); }
+  26%  { transform: translate3d(2px, -1px, 0) rotate(4deg); }
+  40%  { transform: translate3d(-2px, -3px, 0) rotate(-3deg); }
+  54%  { transform: translate3d(2px, -1px, 0) rotate(3deg); }
+  68%  { transform: translate3d(-1px, -2px, 0) rotate(-2deg); }
+  82%  { transform: translate3d(1px, 0, 0) rotate(1deg); }
+}
+
+/* hidden while the overlay owns the screen */
+.marvin-dock.is-away {
+  opacity: 0;
+  transform: scale(.9);
+  transition: opacity .3s ease, transform .3s ease;
+  pointer-events: none;
+}
+
+@media (max-width: 760px) {
+  .marvin-dock { right: 16px; bottom: 16px; gap: 10px; }
+  .marvin { width: 72px; height: 72px; }
+  .marvin__label { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marvin__bob,
+  .marvin__bob.is-nudging { animation: none; }
+  .marvin__body { transition: none; }
+  .marvin__label, .marvin__bubble { transition: opacity .2s linear; transform: none; }
+}
