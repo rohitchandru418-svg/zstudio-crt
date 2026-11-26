@@ -13,7 +13,9 @@ Plain HTML, CSS and Canvas 2D. No build step, no dependencies, no framework.
 
 - `index.html` — page structure, CRT layers, Zstudio content
 - `crt-screen.css` / `crt-screen.js` — the barrel clip-path glass and its shading
+- `glow.js` — the tube's four-hue rim: a WebGL overlay clipped by the barrel
 - `landing.css` / `landing.js` — layout, hero, card field, drag/click, wind, dust, audio
+- `marvin.css` / `marvin.js`, `marvin-panel.css` / `marvin-panel.js` — the assistant
 
 ## Local
 

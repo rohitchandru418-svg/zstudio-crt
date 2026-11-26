@@ -84,6 +84,9 @@
   </script>
   <div class="crt" id="crt">
     <div class="crt__screen" id="crtScreen">
+      <!-- tube glow: oryzo's four-hue rim, shaped by the barrel clip -->
+      <canvas class="crt__glow" id="crtGlow" aria-hidden="true"></canvas>
+
       <div class="crt__content" id="crtContent">
 
         <!-- work cards, drawn under the glass -->
@@ -203,6 +206,7 @@
   </div>
 
   <script src="crt-screen.js"></script>
+  <script src="glow.js?v=2"></script>
   <script src="landing.js?v=77"></script>
   <script src="marvin.js?v=9" defer></script>
 </body>
