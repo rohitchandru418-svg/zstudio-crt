@@ -3,6 +3,10 @@
 A Zstudio landing page built inside the extracted convex-screen shape from galekto.com,
 inspired by thomasgertenbach.com.
 
+**Live:** https://zstudio-crt.onrender.com
+
+Deployed on Render as a static site. Pushing to `main` triggers a deploy.
+
 ## Stack
 
 Plain HTML, CSS and Canvas 2D. No build step, no dependencies, no framework.
