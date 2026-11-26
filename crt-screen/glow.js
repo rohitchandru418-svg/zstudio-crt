@@ -8,7 +8,8 @@
    saturation, masked to a border band by a signed distance field,
    with a ring that leaves the right edge every two seconds and
    bends the band as it passes. Here the band's SDF is the CRT
-   barrel itself, and the ring leaves the assistant.
+   barrel itself, and the ring leaves the assistant -- once, when
+   Marvin finishes a reply, instead of on a loop.
    ============================================================ */
 (function () {
   'use strict';
@@ -26,6 +27,11 @@
 
   /* half-ish resolution: a soft rim does not need full device pixels */
   var SCALE = 0.6;
+
+  /* the look dialled in on /_applefx.html */
+  var AMOUNT = 0.5;    /* glow amount            */
+  var SPIN   = 0.20;    /* rotation multiplier    */
+  var PAD    = 65;     /* band width, CSS px     */
   var DPR = Math.min(2, window.devicePixelRatio || 1);
 
   var vs = [
@@ -104,7 +110,7 @@
     '  rim = pow(rim, 2.6);',
     '  float g = rim + haze * 0.34;',
 
-    '  float lit = g * u_amount * 0.85 + wave * (rim * 0.45 + 0.05);',
+    '  float lit = g * u_amount * 0.85 + wave * (rim * 1.0 + 0.22);',
     '  float alpha = clamp(lit, 0.0, 1.0);',
     '  vec3 col = hue * alpha;',
 
@@ -196,7 +202,7 @@
     gl.uniform1f(U.u_corner, m.corner * view.px);
     gl.uniform1f(U.u_mid, m.mid * view.px);
     gl.uniform1f(U.u_radius, m.radius * view.px);
-    gl.uniform1f(U.u_pad, Math.min(50, Math.min(view.w, view.h) * 0.1) * view.px);
+    gl.uniform1f(U.u_pad, Math.min(PAD, Math.min(view.w, view.h) * 0.1) * view.px);
 
     var i = Math.min(h / w, 1) / Math.sqrt(w * w + h * h) * Math.max(w, h);
     gl.uniform2f(U.u_cover, (w / h) * i, i);
@@ -217,64 +223,70 @@
 
   /* --- state --------------------------------------------------------- */
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
-  var state = {
-    t: 0,
-    pulse: 1,
-    hold: 0,
-    amount: 0,
-    target: 0.45,
-    clock: 0
-  };
+  var state = { pulse: 1, amount: 0, clock: 0, live: false };
 
-  document.addEventListener('boot:done', function () {
-    state.target = 0.45;
-    canvas.classList.add('is-on');
-  });
-  if (window.__bootDone) canvas.classList.add('is-on');
-
-  /* the assistant opens: the tube lights up and the ring leaves it */
+  /* the glow belongs to the chat screen, not the home page */
   var crt = document.getElementById('crt');
-  if (crt && window.MutationObserver) {
-    var wasChat = false;
-    new MutationObserver(function () {
-      var chat = crt.classList.contains('is-chat');
-      if (chat === wasChat) return;
-      wasChat = chat;
-      if (chat) {
-        state.target = 1;
-        state.pulse = 0;
-        state.hold = 0;
-      } else {
-        state.target = 0.45;
-      }
-    }).observe(crt, { attributes: true, attributeFilter: ['class'] });
+  var chatting = function () { return !!crt && crt.classList.contains('is-chat'); };
+
+  /* ?pulse=1 previews one ring on open */
+  var devPulse = /[?&]pulse=1/.test(location.search);
+  function setChat(on) {
+    state.live = on;
+    canvas.classList.toggle('is-on', on);
+    if (on && devPulse) setTimeout(fire, 700);
   }
 
-  var last = 0;
+  if (crt && window.MutationObserver) {
+    new MutationObserver(function () { setChat(chatting()); })
+      .observe(crt, { attributes: true, attributeFilter: ['class'] });
+    setChat(chatting());
+  }
+
+  /* one ring per reply: the panel drops .is-thinking when the answer lands */
+  function fire() {
+    state.pulse = 0;
+  }
+
+  if (window.MutationObserver) {
+    var watching = false;
+    var timer = setInterval(function () {
+      var overlay = document.getElementById('mv');
+      if (!overlay || watching) return;
+      watching = true;
+      clearInterval(timer);
+      var wasThinking = overlay.classList.contains('is-thinking');
+      new MutationObserver(function () {
+        var thinking = overlay.classList.contains('is-thinking');
+        if (wasThinking && !thinking) fire();
+        wasThinking = thinking;
+      }).observe(overlay, { attributes: true, attributeFilter: ['class'] });
+    }, 400);
+  }
+
+  var prev = 0;
   function frame(now) {
     requestAnimationFrame(frame);
-    if (!last) last = now;
-    var dt = Math.min((now - last) / 1000, 1 / 20);
-    last = now;
+    var dt = Math.min((now - (prev || now)) / 1000, 1 / 20);
+    prev = now;
     if (document.hidden) return;
 
-    var k = 1 - Math.pow(0.002, dt);
-    state.amount += (state.target - state.amount) * k;
+    var target = state.live ? AMOUNT : 0;
+    state.amount += (target - state.amount) * (1 - Math.pow(0.002, dt));
 
-    if (reduce.matches) {
-      state.clock += dt * 0.12;
+    if (!state.live && state.amount < 0.002) {
       state.pulse = 1;
-    } else {
-      state.clock += dt;
-      if (state.pulse < 1) {
-        state.pulse = Math.min(1, state.pulse + dt * 0.5);
-      } else {
-        state.hold += dt;
-        if (state.hold > 1.4) { state.hold = 0; state.pulse = 0; }
-      }
+      return;
     }
 
-    gl.uniform1f(U.u_time, state.clock);
+    state.clock += dt;
+    if (reduce.matches) {
+      state.pulse = 1;
+    } else if (state.pulse < 1) {
+      state.pulse = Math.min(1, state.pulse + dt * 0.5);
+    }
+
+    gl.uniform1f(U.u_time, state.clock * SPIN);
     gl.uniform1f(U.u_amount, state.amount);
     gl.uniform1f(U.u_pulse, state.pulse);
     gl.drawArrays(gl.TRIANGLES, 0, 3);

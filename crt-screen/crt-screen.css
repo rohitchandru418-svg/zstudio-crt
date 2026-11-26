@@ -61,6 +61,9 @@ body {
 
 .crt__glow.is-on { opacity: 1; }
 
+/* above the chat panel (z 6) so it reads as a post effect, below menu/story/dock */
+.crt__glow { z-index: 7; }
+
 @media (prefers-reduced-motion: reduce) {
   .crt__glow { transition-duration: .01ms; }
 }
