@@ -7,6 +7,7 @@
 
   var canvas   = document.getElementById('cards');
   var ctx      = canvas.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
   var heroEl   = document.querySelector('.hero');
   var slotEl   = document.getElementById('slot');
   var topEl    = document.querySelector('.hud__top');
@@ -252,12 +253,16 @@
       return {
         work: work, i: i, w: cw, h: ch,
         canvas: buildCard(work, i, cw, ch),
+        shadowSoft: softRect(cw, ch, 9),
+        shadowCast: softRect(cw, ch, 26),
         x: 0, y: 0, hx: 0, hy: 0,
         tx: 0, ty: 0, hrot: 0, trot: 0,
         rot: 0, tilt: 0,
         vx: 0, vy: 0, vrot: 0,
         lift: 0, liftV: 0, ax: 0, ay: 0, asway: 0, lx: 0, ly: 0, lxT: 0, lyT: 0,
-        bend: 0, bendV: 0,
+        bend: 0, bendV: 0, yaw: 0, pitch: 0,
+        yaw0: ((i % 3) - 1) * 0.035 + (i % 2 ? 0.012 : -0.012),
+        pitch0: ((i % 4) - 1.5) * 0.018,
         hover: false, drag: false, home: true,
         grabX: 0, grabY: 0,
         reveal: 1, placed: false, openOnArrive: false
@@ -724,13 +729,13 @@
       c.lx += (c.lxT - c.lx) * lean;
       c.ly += (c.lyT - c.ly) * lean;
 
-      var bendTarget = calm ? 0 : clamp(c.vx * 0.012, -14, 14) + Math.sin(now * 0.0011 + c.i * 1.7) * 0.5;
-      c.bendV += (bendTarget - c.bend) * 110 * dt;
-      c.bendV *= Math.exp(-14 * dt);
-      c.bend += c.bendV * dt;
-      if (Math.abs(bendTarget - c.bend) < 0.02 && Math.abs(c.bendV) < 0.3) {
-        c.bend = bendTarget; c.bendV = 0;
-      }
+      /* the sheet turns to the light: the lean it takes from the pointer,
+         and the shove it takes from being thrown, both feed the pose */
+      var yawT = calm ? c.yaw0 : c.yaw0 + c.lx * 0.17 + Math.sin(now * 0.00043 + c.i * 1.9) * 0.02;
+      var pitchT = calm ? c.pitch0 : c.pitch0 + c.ly * 0.13 + clamp(c.vx * 0.00016, -0.06, 0.06);
+      var poseEase = 1 - Math.exp(-9 * dt);
+      c.yaw += (yawT - c.yaw) * poseEase;
+      c.pitch += (pitchT - c.pitch) * poseEase;
     });
 
     stepMotes(dt, now);
@@ -793,127 +798,224 @@
   /* ------------------------------------------------------------
      draw
      ------------------------------------------------------------ */
+  /* ------------------------------------------------------------
+     the print as a sheet in space
+
+     His cards are planes under a perspective camera with a shadow map
+     and a clearcoat material. This is the 2D equivalent: the sheet is a
+     projected quad, it casts its own silhouette, and the gloss moves
+     with the turn.
+     ------------------------------------------------------------ */
+  var FOCAL = 1600, CAM = 1600;
+
+  /* soft silhouette, built once — a cast shadow is the shape of the thing */
+  function softRect(cw, ch, softness) {
+    var pad = Math.ceil(softness * 2.2);
+    var w = cw + pad * 2, h = ch + pad * 2;
+    var k = Math.max(3, Math.round(softness * 0.75));
+
+    var small = document.createElement('canvas');
+    small.width = Math.max(4, Math.round(w / k));
+    small.height = Math.max(4, Math.round(h / k));
+    var sg = small.getContext('2d');
+    sg.fillStyle = '#000';
+    sg.fillRect(pad / k, pad / k, cw / k, ch / k);
+
+    var mid = document.createElement('canvas');
+    mid.width = Math.max(8, Math.round(w / 2));
+    mid.height = Math.max(8, Math.round(h / 2));
+    var mg = mid.getContext('2d');
+    mg.imageSmoothingEnabled = true;
+    mg.imageSmoothingQuality = 'high';
+    mg.drawImage(small, 0, 0, mid.width, mid.height);
+
+    var cv = document.createElement('canvas');
+    cv.width = Math.round(w * 2);
+    cv.height = Math.round(h * 2);
+    var g = cv.getContext('2d');
+    g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = 'high';
+    g.scale(2, 2);
+    g.drawImage(mid, 0, 0, w, h);
+    return cv;
+  }
+
+  /* four corners of the sheet, projected */
+  function cardQuad(c, cx, cy, rot, s) {
+    var hw = (c.w / 2) * s, hh = (c.h / 2) * s;
+    var cyaw = Math.cos(c.yaw), syaw = Math.sin(c.yaw);
+    var cp = Math.cos(c.pitch), sp = Math.sin(c.pitch);
+    var cr = Math.cos(rot), sr = Math.sin(rot);
+    var src = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]];
+    var out = [];
+
+    for (var i = 0; i < 4; i += 1) {
+      var x = src[i][0], y = src[i][1];
+      var x1 = x * cyaw;
+      var z1 = -x * syaw;
+      var y2 = y * cp - z1 * sp;
+      var z2 = y * sp + z1 * cp;
+      var k = FOCAL / (CAM + z2);
+      var px = x1 * k, py = y2 * k;
+      out.push([cx + px * cr - py * sr, cy + px * sr + py * cr]);
+    }
+    return out;
+  }
+
+  function pathQuad(q) {
+    ctx.beginPath();
+    ctx.moveTo(q[0][0], q[0][1]);
+    ctx.lineTo(q[1][0], q[1][1]);
+    ctx.lineTo(q[2][0], q[2][1]);
+    ctx.lineTo(q[3][0], q[3][1]);
+    ctx.closePath();
+  }
+
+  /* affine map taking a source triangle onto a destination triangle */
+  function triMap(g, sx0, sy0, sx1, sy1, sx2, sy2, u0, u1, u2) {
+    var den = (sx1 - sx2) * (sy0 - sy2) - (sx0 - sx2) * (sy1 - sy2);
+    if (!den) return false;
+    var a = ((u1[0] - u2[0]) * (sy0 - sy2) - (u0[0] - u2[0]) * (sy1 - sy2)) / den;
+    var cc = ((u0[0] - u2[0]) * (sx1 - sx2) - (u1[0] - u2[0]) * (sx0 - sx2)) / den;
+    var b = ((u1[1] - u2[1]) * (sy0 - sy2) - (u0[1] - u2[1]) * (sy1 - sy2)) / den;
+    var d = ((u0[1] - u2[1]) * (sx1 - sx2) - (u1[1] - u2[1]) * (sx0 - sx2)) / den;
+    g.transform(a, b, cc, d, u0[0] - a * sx0 - cc * sy0, u0[1] - b * sx0 - d * sy0);
+    return true;
+  }
+
+  /* a projective warp, done as two affine halves. The first half is clipped
+     to the whole sheet so the diagonal can never show a hairline */
+  function warpQuad(img, q) {
+    var w = img.width, h = img.height;
+
+    ctx.save();
+    pathQuad(q);
+    ctx.clip();
+    if (triMap(ctx, 0, 0, w, 0, 0, h, q[0], q[1], q[3])) ctx.drawImage(img, 0, 0);
+    ctx.restore();
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(q[1][0], q[1][1]);
+    ctx.lineTo(q[2][0], q[2][1]);
+    ctx.lineTo(q[3][0], q[3][1]);
+    ctx.closePath();
+    ctx.clip();
+    if (triMap(ctx, w, 0, w, h, 0, h, q[1], q[2], q[3])) ctx.drawImage(img, 0, 0);
+    ctx.restore();
+  }
+
+  function drawCastShadow(c, liftN, rot, cx, cy, s) {
+    var baseA = ctx.globalAlpha;
+    var off = 3 + liftN * 52;
+    var ox = off * 0.55, oy = off * 0.95;
+    var wide = clamp(liftN, 0, 1);
+
+    var cw1 = (c.shadowCast.width / 2) * (1 + wide * 0.12);
+    var ch1 = (c.shadowCast.height / 2) * (1 + wide * 0.12);
+    var cw2 = (c.shadowSoft.width / 2) * (1.015 + wide * 0.01);
+    var ch2 = (c.shadowSoft.height / 2) * (1.015 + wide * 0.01);
+
+    ctx.save();
+    ctx.translate(cx + ox, cy + oy);
+    ctx.rotate(rot);
+    ctx.scale(s, s);
+
+    /* the far shadow only exists once the sheet leaves the surface */
+    ctx.globalAlpha = baseA * wide * 0.30;
+    ctx.drawImage(c.shadowCast, -cw1 / 2, -ch1 / 2, cw1, ch1);
+
+    ctx.globalAlpha = baseA * 0.48 * (1 - wide * 0.55);
+    ctx.drawImage(c.shadowSoft, -cw2 / 2, -ch2 / 2, cw2, ch2);
+
+    ctx.globalAlpha = baseA;
+    ctx.restore();
+  }
+
   function drawCard(c) {
     var fade = c.home ? Math.min(edgeFade(c), heroFade(c), slotFade(c)) : 1;
     if (fade < 1) ctx.globalAlpha = fade;
 
     var liftN = clamp(c.lift, 0, 1.2);
     var s = 1 + liftN * 0.075;
+    var rot = c.rot + (c.asway || 0);
+    var cx = c.x + (c.ax || 0);
+    var cy = c.y + (c.ay || 0);
 
-    /* cast shadow — a wide pool of occlusion under the print */
-    var sy = c.y + c.h * 0.47 + liftN * 20;
-    var rx = c.w * (0.54 + liftN * 0.14);
-    var amb = 0.58 - liftN * 0.16;
+    drawCastShadow(c, liftN, rot, cx, cy, s);
 
-    ctx.save();
-    ctx.translate(c.x + (c.ax || 0) * 0.35, sy);
-    ctx.scale(1, 0.22 + liftN * 0.06);
-    var g1 = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
-    g1.addColorStop(0, 'rgba(0,0,0,' + amb.toFixed(3) + ')');
-    g1.addColorStop(0.55, 'rgba(0,0,0,' + (amb * 0.42).toFixed(3) + ')');
-    g1.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = g1;
-    ctx.beginPath();
-    ctx.arc(0, 0, rx, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    var q = cardQuad(c, cx, cy, rot, s);
+    warpQuad(c.canvas, q);
 
-    ctx.save();
-    ctx.translate(c.x + (c.ax || 0), c.y + (c.ay || 0));
-    ctx.rotate(c.rot + (c.asway || 0));
-    if (c.lx || c.ly) ctx.transform(1, c.ly * 0.075, c.lx * 0.075, 1, 0, 0);
-    ctx.scale(s, s);
-
-    /* contact shadow hugging the lower edge */
-    var cs = ctx.createLinearGradient(0, c.h * 0.34, 0, c.h * 0.56);
-    cs.addColorStop(0, 'rgba(0,0,0,0)');
-    cs.addColorStop(0.5, 'rgba(0,0,0,' + (0.46 - liftN * 0.16).toFixed(3) + ')');
-    cs.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = cs;
-    ctx.fillRect(-c.w * 0.54, c.h * 0.3, c.w * 1.08, c.h * 0.3);
-
-    /* the sheet itself, bent across its radius */
-    var n = 10;
-    var sw = c.canvas.width;
-    var sh = c.canvas.height;
-    var strip = sh / n;
-
-    for (var i = 0; i < n; i += 1) {
-      var off = Math.sin(((i + 0.5) / n) * Math.PI) * c.bend;
-      ctx.drawImage(
-        c.canvas,
-        0, i * strip, sw, strip,
-        -c.w / 2 + off, -c.h / 2 + (i * c.h) / n, c.w, c.h / n + 0.7
+    /* clearcoat: as the sheet turns away it catches the tube on one edge
+       and falls into shade on the other */
+    var turn = clamp(Math.abs(c.yaw) * 3.4 + liftN * 0.55, 0, 1);
+    if (turn > 0.02) {
+      var dir = c.yaw >= 0 ? 1 : -1;
+      var gl = ctx.createLinearGradient(
+        cx - c.w * 0.62 * dir, cy - c.h * 0.62,
+        cx + c.w * 0.62 * dir, cy + c.h * 0.62
       );
+      gl.addColorStop(0, 'rgba(255,250,240,' + (0.13 * turn).toFixed(3) + ')');
+      gl.addColorStop(0.40, 'rgba(255,250,240,' + (0.03 * turn).toFixed(3) + ')');
+      gl.addColorStop(0.62, 'rgba(0,0,0,' + (0.05 * turn).toFixed(3) + ')');
+      gl.addColorStop(1, 'rgba(0,0,0,' + (0.22 * turn).toFixed(3) + ')');
+
+      ctx.save();
+      pathQuad(q);
+      ctx.clip();
+      ctx.globalCompositeOperation = 'soft-light';
+      ctx.fillStyle = gl;
+      ctx.fillRect(cx - c.w, cy - c.h, c.w * 2, c.h * 2);
+      ctx.restore();
     }
 
     /* a slow rake of tube light travels across the gloss — the print is never still */
     if (!calmNow) {
       var sweep = ((frameNow * 0.00006 + c.i * 0.17) % 1 + 1) % 1;
-      var bx = -c.w * 0.7 + sweep * c.w * 1.4;
-      var rake = ctx.createLinearGradient(bx - c.w * 0.30, -c.h * 0.5, bx + c.w * 0.30, c.h * 0.5);
+      var bx = cx - c.w * 0.7 + sweep * c.w * 1.4;
+      var rake = ctx.createLinearGradient(bx - c.w * 0.30, cy - c.h * 0.5, bx + c.w * 0.30, cy + c.h * 0.5);
       rake.addColorStop(0, 'rgba(255,250,240,0)');
       rake.addColorStop(0.5, 'rgba(255,250,240,0.055)');
       rake.addColorStop(1, 'rgba(255,250,240,0)');
+
       ctx.save();
+      pathQuad(q);
+      ctx.clip();
       ctx.globalCompositeOperation = 'soft-light';
       ctx.fillStyle = rake;
-      ctx.fillRect(-c.w / 2, -c.h / 2, c.w, c.h);
-      ctx.restore();
-    }
-
-    /* lift catches the tube light; the sheet is already lit at rest */
-    var dyn = clamp(liftN / 0.18, 0, 1);
-    if (dyn > 0.01) {
-      var lx = clamp((W * 0.5 - c.x) / W, -0.6, 0.6);
-      var ly = clamp((H * 0.42 - c.y) / H, -0.6, 0.6);
-      var sh2 = ctx.createLinearGradient(
-        -c.w * 0.5 + lx * c.w * 0.8, -c.h * 0.5 + ly * c.h * 0.8,
-         c.w * 0.5 + lx * c.w * 0.8,  c.h * 0.5 + ly * c.h * 0.8
-      );
-      sh2.addColorStop(0, 'rgba(255,250,240,' + (0.16 * dyn).toFixed(3) + ')');
-      sh2.addColorStop(0.45, 'rgba(255,250,240,' + (0.02 * dyn).toFixed(3) + ')');
-      sh2.addColorStop(0.62, 'rgba(0,0,0,' + (0.06 * dyn).toFixed(3) + ')');
-      sh2.addColorStop(1, 'rgba(0,0,0,' + (0.26 * dyn).toFixed(3) + ')');
-      ctx.save();
-      ctx.globalCompositeOperation = 'soft-light';
-      ctx.fillStyle = sh2;
-      ctx.fillRect(-c.w / 2, -c.h / 2, c.w, c.h);
+      ctx.fillRect(cx - c.w, cy - c.h, c.w * 2, c.h * 2);
       ctx.restore();
     }
 
     /* reveal — a scan line develops the print as it lands in the slot */
     if (c.reveal < 1) {
-      var bandY = -c.h / 2 + c.reveal * c.h;
+      var bandY = cy - c.h / 2 + c.reveal * c.h;
 
       ctx.save();
-      ctx.beginPath();
-      ctx.rect(-c.w / 2, bandY, c.w, c.h / 2 - bandY);
+      pathQuad(q);
       ctx.clip();
       ctx.fillStyle = 'rgba(6,5,4,0.84)';
-      ctx.fillRect(-c.w / 2, -c.h / 2, c.w, c.h);
-      ctx.restore();
+      ctx.fillRect(cx - c.w, bandY, c.w * 2, c.h);
 
       var bg = ctx.createLinearGradient(0, bandY - c.h * 0.14, 0, bandY + c.h * 0.02);
       bg.addColorStop(0, 'rgba(255,250,240,0)');
       bg.addColorStop(0.72, 'rgba(255,250,240,0.30)');
       bg.addColorStop(1, 'rgba(255,250,240,0)');
       ctx.fillStyle = bg;
-      ctx.fillRect(-c.w / 2, bandY - c.h * 0.14, c.w, c.h * 0.16);
+      ctx.fillRect(cx - c.w, bandY - c.h * 0.14, c.w * 2, c.h * 0.16);
+      ctx.restore();
     }
 
-    /* paper edge catching the light */
+    /* the cut edge of the paper, catching the light */
+    ctx.save();
     ctx.strokeStyle = 'rgba(255,250,240,' + (0.06 + liftN * 0.16).toFixed(3) + ')';
     ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(-c.w / 2 + 0.5, c.h / 2 - 0.5);
-    ctx.lineTo(-c.w / 2 + 0.5, -c.h / 2 + 0.5);
-    ctx.lineTo(c.w / 2 - 0.5, -c.h / 2 + 0.5);
+    pathQuad(q);
     ctx.stroke();
+    ctx.restore();
 
     if (fade < 1) ctx.globalAlpha = 1;
-
-    ctx.restore();
   }
 
   function draw(now) {
