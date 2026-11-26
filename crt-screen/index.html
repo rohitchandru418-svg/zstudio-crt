@@ -45,6 +45,21 @@
             <p class="slot__label">Drop a card here</p>
             <p class="slot__meta">01 &#8212; Inspect</p>
           </div>
+
+          <section class="story" id="story" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="storyTitle">
+            <div class="story__scrim" data-story-close></div>
+            <button class="story__close" type="button" data-story-close aria-label="Close the project">Close</button>
+            <div class="story__panel">
+              <canvas class="story__art" id="storyArt" width="720" height="880" aria-hidden="true"></canvas>
+              <div class="story__copy">
+                <p class="story__eyebrow">Selected work</p>
+                <h2 class="story__title" id="storyTitle"></h2>
+                <p class="story__meta" id="storyMeta"></p>
+                <p class="story__body" id="storyBody"></p>
+                <p class="story__foot"><span class="story__hint">Esc closes</span><a class="story__next" href="#" data-story-close>Back to the shelf</a></p>
+              </div>
+            </div>
+          </section>
         </div>
 
         <div class="menu" id="menu" aria-hidden="true">

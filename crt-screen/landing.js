@@ -17,12 +17,30 @@
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   var WORKS = [
-    { title: 'Halcyon',  year: '2026' },
-    { title: 'Meridian', year: '2026' },
-    { title: 'Vellum',   year: '2025' },
-    { title: 'Quarry',   year: '2025' },
-    { title: 'Signal',   year: '2024' },
-    { title: 'Terrain',  year: '2024' }
+    {
+      title: 'Halcyon', year: '2026', kind: 'Web \u00b7 Identity',
+      blurb: 'A slow-reading index for an architecture practice. Plans unfold as you scroll; nothing announces itself until you stop.'
+    },
+    {
+      title: 'Meridian', year: '2026', kind: 'Web \u00b7 Product',
+      blurb: 'Ticketing for a chamber music festival, built around one long scroll and a seating plan that breathes.'
+    },
+    {
+      title: 'Vellum', year: '2025', kind: 'Web \u00b7 Editorial',
+      blurb: 'A reading room for a small press. One typeface, real paper grain, and a column that never fights the text.'
+    },
+    {
+      title: 'Quarry', year: '2025', kind: 'Web \u00b7 Archive',
+      blurb: 'A materials library: 240 stone samples, each photographed under the same lamp so the comparison is honest.'
+    },
+    {
+      title: 'Signal', year: '2024', kind: 'Web \u00b7 Audio',
+      blurb: 'An archive of field recordings, played back through a waveform drawn by hand and set in motion by the sound.'
+    },
+    {
+      title: 'Terrain', year: '2024', kind: 'Web \u00b7 Interactive',
+      blurb: 'A mapping tool for walking artists. A route becomes an elevation profile you can read at a glance.'
+    }
   ];
 
   /* ------------------------------------------------------------
@@ -242,7 +260,7 @@
         bend: 0, bendV: 0,
         hover: false, drag: false, home: true,
         grabX: 0, grabY: 0,
-        reveal: 1, placed: false
+        reveal: 1, placed: false, openOnArrive: false
       };
     });
   }
@@ -419,6 +437,40 @@
     return null;
   }
 
+  /* the conveyor: an endless strip of prints that cruises on its own.
+     On the seam a card is fully off-screen both before and after, so the
+     jump is never visible. */
+  function stripX(c, off) {
+    var period = W + c.w;
+    var s = ((c.hx + off) % period + period) % period;
+    if (s > W + c.w / 2) s -= period;
+    return s;
+  }
+
+  function edgeFade(c) {
+    var inside = Math.min(c.x + c.w / 2, W + c.w / 2 - c.x);
+    return clamp(inside / (W * 0.12), 0, 1);
+  }
+
+  /* a print dissolves as it slides behind the headline, so the type never
+     has to compete with it, then re-forms on the far side */
+  function clearFade(c, r, gain) {
+    if (!r) return 1;
+    var ox = Math.min(c.x + c.w / 2, r.right) - Math.max(c.x - c.w / 2, r.left);
+    var oy = Math.min(c.y + c.h / 2, r.bottom) - Math.max(c.y - c.h / 2, r.top);
+    if (ox <= 0 || oy <= 0) return 1;
+    return clamp(1 - (ox * oy) / (c.w * c.h) * gain, 0, 1);
+  }
+
+  function heroFade(c) { return clearFade(c, heroRect, 4.2); }
+
+  /* the slot is a reader plate: a print passing over it dissolves rather than
+     landing on top of whatever is already sitting there */
+  function slotFade(c) {
+    if (!slotRect) return 1;
+    return clearFade(c, { left: slotRect.left - 10, right: slotRect.right + 10, top: slotRect.top - 10, bottom: slotRect.bottom + 10 }, 3.4);
+  }
+
   function overSlot(c) {
     if (!slotRect) return false;
     var ox = Math.min(c.x + c.w / 2, slotRect.right) - Math.max(c.x - c.w / 2, slotRect.left);
@@ -429,7 +481,7 @@
 
   function sendHome(c) {
     c.home = true;
-    c.tx = c.hx; c.ty = c.hy; c.trot = c.hrot;
+    c.tx = stripX(c, cruise); c.ty = c.hy; c.trot = c.hrot;
     c.reveal = 1;
     if (!cards.some(function (o) { return !o.home; })) slotEl.classList.remove('is-filled');
   }
@@ -479,6 +531,7 @@
     active = c;
     downX = e.clientX; downY = e.clientY; moved = false;
     c.drag = true;
+    lastInput = performance.now();
     c.grabX = c.x - e.clientX;
     c.grabY = c.y - e.clientY;
     canvas.style.cursor = 'grabbing';
@@ -496,15 +549,24 @@
       canvas.releasePointerCapture(e.pointerId);
     }
 
+    lastInput = performance.now();
+
     if (!moved) {
-      if (c.home) place(c); else sendHome(c);
+      if (c.home) { place(c); c.openOnArrive = true; }
+      else { Story.open(c); }
       return;
     }
 
     c.vx = clamp(c.vx, -2400, 2400);
     c.vy = clamp(c.vy, -2400, 2400);
 
-    if (overSlot(c)) place(c); else sendHome(c);
+    if (overSlot(c)) {
+      place(c);
+      c.openOnArrive = true;
+    } else {
+      sendHome(c);
+      cruiseFling = clamp(c.vx, -1600, 1600);
+    }
   }
 
   function onLeave() {
@@ -534,6 +596,24 @@
   var windEnergy = 0;
   var windPan = 0;
 
+  /* conveyor state. the constants are the reference carousel's: cruise at 7.5%
+     of the strip height per second, friction 0.95 a frame, auto-advance easing
+     back in 900ms after the last touch. */
+  var cruise = 0;
+  var cruiseAuto = 0;
+  var cruiseFling = 0;
+  var lastInput = -1e9;
+  var storyOpen = false;
+
+  function updateCruise(dt, now, calm) {
+    var speed = H * 0.04;
+    var cruising = now - lastInput > 900 && !storyOpen && !calm && !active;
+    cruiseAuto += ((cruising ? speed : 0) - cruiseAuto) * (1 - Math.exp(-2.14 * dt));
+    cruiseFling *= Math.exp(-3.08 * dt);
+    if (Math.abs(cruiseFling) < 1) cruiseFling = 0;
+    cruise += (cruiseAuto + cruiseFling) * dt;
+  }
+
   var frameNow = 0;
   var calmNow = false;
 
@@ -546,6 +626,7 @@
     windEnergy = 0;
     var calm = reduceMotion.matches;
     calmNow = calm;
+    updateCruise(dt, now, calm);
 
 
     cards.forEach(function (c) {
@@ -563,6 +644,13 @@
         c.x = nx;
         c.y = ny;
       } else {
+        if (c.home) {
+          var onStrip = stripX(c, cruise);
+          /* crossing the seam: shift the card with the target so the spring
+             never drags it back across the screen */
+          if (Math.abs(onStrip - c.tx) > (W + c.w) * 0.5) c.x += onStrip - c.tx;
+          c.tx = onStrip;
+        }
         c.vx += (c.tx - c.x) * stiff * dt;
         c.vy += (c.ty - c.y) * stiff * dt;
         c.vx *= Math.exp(-damp * dt);
@@ -588,16 +676,6 @@
         c.x += c.vx * dt;
         c.y += c.vy * dt;
 
-        if (c.home) {
-          collide(c);
-          if (safe) {
-            var hw = c.w / 2, hh = c.h / 2;
-            if (c.x < safe.left + hw) { c.x = safe.left + hw; c.vx *= -0.3; }
-            if (c.x > safe.right - hw) { c.x = safe.right - hw; c.vx *= -0.3; }
-            if (c.y < safe.top + hh) { c.y = safe.top + hh; c.vy *= -0.3; }
-            if (c.y > safe.bottom - hh) { c.y = safe.bottom - hh; c.vy *= -0.3; }
-          }
-        }
       }
 
       if (c.reveal < 1) c.reveal = Math.min(1, c.reveal + dt / 0.9);
@@ -610,6 +688,12 @@
             Math.abs(c.vx) < 14 && Math.abs(c.vy) < 14) {
           c.x = c.tx; c.y = c.ty; c.vx = 0; c.vy = 0;
         }
+      }
+
+      if (c.openOnArrive && !c.home && c.reveal >= 1 &&
+          Math.abs(c.x - c.tx) < 2.5 && Math.abs(c.y - c.ty) < 2.5) {
+        c.openOnArrive = false;
+        Story.open(c);
       }
 
       var rotTarget = c.trot + (c.home ? c.tilt : 0);
@@ -710,6 +794,9 @@
      draw
      ------------------------------------------------------------ */
   function drawCard(c) {
+    var fade = c.home ? Math.min(edgeFade(c), heroFade(c), slotFade(c)) : 1;
+    if (fade < 1) ctx.globalAlpha = fade;
+
     var liftN = clamp(c.lift, 0, 1.2);
     var s = 1 + liftN * 0.075;
 
@@ -823,6 +910,8 @@
     ctx.lineTo(-c.w / 2 + 0.5, -c.h / 2 + 0.5);
     ctx.lineTo(c.w / 2 - 0.5, -c.h / 2 + 0.5);
     ctx.stroke();
+
+    if (fade < 1) ctx.globalAlpha = 1;
 
     ctx.restore();
   }
@@ -1071,6 +1160,66 @@
   /* ------------------------------------------------------------
      menu
      ------------------------------------------------------------ */
+  /* ------------------------------------------------------------
+     story — the card opens as a plate: same print, larger, with the work
+     ------------------------------------------------------------ */
+  var Story = (function () {
+    var root = document.getElementById('story');
+    var titleEl = document.getElementById('storyTitle');
+    var metaEl = document.getElementById('storyMeta');
+    var bodyEl = document.getElementById('storyBody');
+    var closeBtn = root && root.querySelector('.story__close');
+    var artHost = document.getElementById('storyArt');
+    var lastFocus = null;
+
+    function open(card) {
+      if (!root || !card) return;
+      var work = WORKS[card.i];
+      if (!work) return;
+
+      titleEl.textContent = work.title;
+      metaEl.textContent = work.kind + '  \u00b7  ' + work.year;
+      bodyEl.textContent = work.blurb;
+
+      /* rebuilt at plate size rather than upscaled, so it stays crisp */
+      var plate = buildCard(work, card.i, 720, 880);
+      plate.className = 'story__art';
+      plate.setAttribute('aria-hidden', 'true');
+      if (artHost && artHost.parentNode) {
+        artHost.parentNode.replaceChild(plate, artHost);
+      } else {
+        root.querySelector('.story__panel').prepend(plate);
+      }
+      artHost = plate;
+
+      lastFocus = document.activeElement;
+      storyOpen = true;
+      root.classList.add('is-open');
+      root.setAttribute('aria-hidden', 'false');
+      if (closeBtn) closeBtn.focus();
+      Sound.select();
+    }
+
+    function close() {
+      if (!root || !storyOpen) return;
+      storyOpen = false;
+      root.classList.remove('is-open');
+      root.setAttribute('aria-hidden', 'true');
+      if (lastFocus && lastFocus.focus) lastFocus.focus();
+    }
+
+    if (root) {
+      root.addEventListener('click', function (e) {
+        if (e.target.closest && e.target.closest('[data-story-close]')) close();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' || e.key === 'Esc') close();
+      });
+    }
+
+    return { open: open, close: close };
+  })();
+
   (function menu() {
     var open = false;
     var lastFocus = null;
