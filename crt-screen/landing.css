@@ -621,3 +621,12 @@ html.is-lean .fx__band { animation: none; opacity: 0; }
   .story__art { width: min(52%, 240px); }
   .story__title { font-size: clamp(26px, 7vw, 38px); }
 }
+
+/* --- keep the static glasswork off the canvas repaint --- */
+.crt__bevel,
+.crt__glass,
+.fx {
+  will-change: transform;
+  transform: translateZ(0);
+  contain: paint;
+}

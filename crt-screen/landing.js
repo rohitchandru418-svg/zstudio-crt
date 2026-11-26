@@ -7,7 +7,7 @@
 
   var canvas   = document.getElementById('cards');
   var ctx      = canvas.getContext('2d');
-  ctx.imageSmoothingQuality = 'high';
+  ctx.imageSmoothingQuality = 'low';
   var heroEl   = document.querySelector('.hero');
   var slotEl   = document.getElementById('slot');
   var topEl    = document.querySelector('.hud__top');
@@ -191,7 +191,8 @@
   /* ------------------------------------------------------------
      card surface: paper, photo, caption
      ------------------------------------------------------------ */
-  var DPR = Math.min(2, window.devicePixelRatio || 1);
+  var DPR_CAP = 1.5;
+  var DPR = Math.min(DPR_CAP, window.devicePixelRatio || 1);
 
   function buildCard(work, index, cw, ch) {
     var c = document.createElement('canvas');
@@ -431,7 +432,7 @@
   }
 
   function resizeCanvas() {
-    DPR = Math.min(2, window.devicePixelRatio || 1);
+    DPR = Math.min(DPR_CAP, window.devicePixelRatio || 1);
     canvas.width = Math.round(W * DPR);
     canvas.height = Math.round(H * DPR);
     canvas.style.width = W + 'px';
@@ -817,11 +818,17 @@
     }
   }
 
+  var MOTE_STEPS = 48, MOTE_MAX = 0.24, MOTE_COLS = [];
+  for (var mi = 0; mi < MOTE_STEPS + 1; mi += 1) {
+    MOTE_COLS.push('rgba(246,240,230,' + ((mi / MOTE_STEPS) * MOTE_MAX).toFixed(3) + ')');
+  }
+
   function drawMotes(now) {
     for (var i = 0; i < motes.length; i += 1) {
       var m = motes[i];
       var tw = 0.55 + 0.45 * Math.sin(now * 0.0009 * (0.5 + m.z) + m.ph);
-      ctx.fillStyle = 'rgba(246,240,230,' + (m.a * tw).toFixed(3) + ')';
+      var step = Math.round((m.a * tw / MOTE_MAX) * MOTE_STEPS);
+      ctx.fillStyle = MOTE_COLS[step < 0 ? 0 : step > MOTE_STEPS ? MOTE_STEPS : step];
       ctx.fillRect(m.x, m.y, m.r, m.r);
     }
   }
@@ -953,8 +960,10 @@
     ctx.scale(s, s);
 
     /* the far shadow only exists once the sheet leaves the surface */
-    ctx.globalAlpha = baseA * wide * 0.30;
-    ctx.drawImage(c.shadowCast, -cw1 / 2, -ch1 / 2, cw1, ch1);
+    if (wide > 0.02) {
+      ctx.globalAlpha = baseA * wide * 0.30;
+      ctx.drawImage(c.shadowCast, -cw1 / 2, -ch1 / 2, cw1, ch1);
+    }
 
     ctx.globalAlpha = baseA * 0.48 * (1 - wide * 0.55);
     ctx.drawImage(c.shadowSoft, -cw2 / 2, -ch2 / 2, cw2, ch2);
@@ -965,6 +974,7 @@
 
   function drawCard(c) {
     var fade = c.home ? Math.min(edgeFade(c), heroFade(c), slotFade(c)) : 1;
+    if (fade < 0.02) return;
     if (fade < 1) ctx.globalAlpha = fade;
 
     var liftN = clamp(c.lift, 0, 1.2);
@@ -976,65 +986,68 @@
     drawCastShadow(c, liftN, rot, cx, cy, s);
 
     var q = cardQuad(c, cx, cy, rot, s);
-    warpQuad(c.canvas, q);
 
-    /* clearcoat: as the sheet turns away it catches the tube on one edge
-       and falls into shade on the other */
+    /* a sheet that is barely turned needs no perspective split */
+    if (Math.abs(c.yaw) < 0.085 && Math.abs(c.pitch) < 0.085) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rot);
+      ctx.scale(s, s);
+      ctx.drawImage(c.canvas, -c.w / 2, -c.h / 2, c.w, c.h);
+      ctx.restore();
+    } else {
+      warpQuad(c.canvas, q);
+    }
+
+    /* everything that lies on the sheet shares a single clip */
     var turn = clamp(Math.abs(c.yaw) * 3.4 + liftN * 0.55, 0, 1);
-    if (turn > 0.02) {
-      var dir = c.yaw >= 0 ? 1 : -1;
-      var gl = ctx.createLinearGradient(
-        cx - c.w * 0.62 * dir, cy - c.h * 0.62,
-        cx + c.w * 0.62 * dir, cy + c.h * 0.62
-      );
-      gl.addColorStop(0, 'rgba(255,250,240,' + (0.13 * turn).toFixed(3) + ')');
-      gl.addColorStop(0.40, 'rgba(255,250,240,' + (0.03 * turn).toFixed(3) + ')');
-      gl.addColorStop(0.62, 'rgba(0,0,0,' + (0.05 * turn).toFixed(3) + ')');
-      gl.addColorStop(1, 'rgba(0,0,0,' + (0.22 * turn).toFixed(3) + ')');
-
+    var revealing = c.reveal < 1;
+    if (turn > 0.02 || !calmNow || revealing) {
       ctx.save();
       pathQuad(q);
       ctx.clip();
-      ctx.globalCompositeOperation = 'soft-light';
-      ctx.fillStyle = gl;
-      ctx.fillRect(cx - c.w, cy - c.h, c.w * 2, c.h * 2);
-      ctx.restore();
-    }
 
-    /* a slow rake of tube light travels across the gloss — the print is never still */
-    if (!calmNow) {
-      var sweep = ((frameNow * 0.00006 + c.i * 0.17) % 1 + 1) % 1;
-      var bx = cx - c.w * 0.7 + sweep * c.w * 1.4;
-      var rake = ctx.createLinearGradient(bx - c.w * 0.30, cy - c.h * 0.5, bx + c.w * 0.30, cy + c.h * 0.5);
-      rake.addColorStop(0, 'rgba(255,250,240,0)');
-      rake.addColorStop(0.5, 'rgba(255,250,240,0.055)');
-      rake.addColorStop(1, 'rgba(255,250,240,0)');
+      /* clearcoat: the edge turning away catches the tube, the other falls
+         into shade */
+      if (turn > 0.02) {
+        var dir = c.yaw >= 0 ? 1 : -1;
+        var gl = ctx.createLinearGradient(
+          cx - c.w * 0.62 * dir, cy - c.h * 0.62,
+          cx + c.w * 0.62 * dir, cy + c.h * 0.62
+        );
+        gl.addColorStop(0, 'rgba(255,250,240,' + (0.13 * turn).toFixed(3) + ')');
+        gl.addColorStop(0.40, 'rgba(255,250,240,' + (0.03 * turn).toFixed(3) + ')');
+        gl.addColorStop(0.62, 'rgba(0,0,0,' + (0.04 * turn).toFixed(3) + ')');
+        gl.addColorStop(1, 'rgba(0,0,0,' + (0.18 * turn).toFixed(3) + ')');
+        ctx.fillStyle = gl;
+        ctx.fillRect(cx - c.w, cy - c.h, c.w * 2, c.h * 2);
+      }
 
-      ctx.save();
-      pathQuad(q);
-      ctx.clip();
-      ctx.globalCompositeOperation = 'soft-light';
-      ctx.fillStyle = rake;
-      ctx.fillRect(cx - c.w, cy - c.h, c.w * 2, c.h * 2);
-      ctx.restore();
-    }
+      /* a slow rake of tube light travels across the gloss */
+      if (!calmNow) {
+        var sweep = ((frameNow * 0.00006 + c.i * 0.17) % 1 + 1) % 1;
+        var bx = cx - c.w * 0.7 + sweep * c.w * 1.4;
+        var rake = ctx.createLinearGradient(bx - c.w * 0.30, cy - c.h * 0.5, bx + c.w * 0.30, cy + c.h * 0.5);
+        rake.addColorStop(0, 'rgba(255,250,240,0)');
+        rake.addColorStop(0.5, 'rgba(255,250,240,0.055)');
+        rake.addColorStop(1, 'rgba(255,250,240,0)');
+        ctx.fillStyle = rake;
+        ctx.fillRect(cx - c.w, cy - c.h, c.w * 2, c.h * 2);
+      }
 
-    /* reveal — a scan line develops the print as it lands in the slot */
-    if (c.reveal < 1) {
-      var bandY = cy - c.h / 2 + c.reveal * c.h;
+      /* reveal — a scan line develops the print as it lands in the slot */
+      if (revealing) {
+        var bandY = cy - c.h / 2 + c.reveal * c.h;
+        ctx.fillStyle = 'rgba(6,5,4,0.84)';
+        ctx.fillRect(cx - c.w, bandY, c.w * 2, c.h);
+        var bg = ctx.createLinearGradient(0, bandY - c.h * 0.14, 0, bandY + c.h * 0.02);
+        bg.addColorStop(0, 'rgba(255,250,240,0)');
+        bg.addColorStop(0.72, 'rgba(255,250,240,0.30)');
+        bg.addColorStop(1, 'rgba(255,250,240,0)');
+        ctx.fillStyle = bg;
+        ctx.fillRect(cx - c.w, bandY - c.h * 0.14, c.w * 2, c.h * 0.16);
+      }
 
-      ctx.save();
-      pathQuad(q);
-      ctx.clip();
-      ctx.fillStyle = 'rgba(6,5,4,0.84)';
-      ctx.fillRect(cx - c.w, bandY, c.w * 2, c.h);
-
-      var bg = ctx.createLinearGradient(0, bandY - c.h * 0.14, 0, bandY + c.h * 0.02);
-      bg.addColorStop(0, 'rgba(255,250,240,0)');
-      bg.addColorStop(0.72, 'rgba(255,250,240,0.30)');
-      bg.addColorStop(1, 'rgba(255,250,240,0)');
-      ctx.fillStyle = bg;
-      ctx.fillRect(cx - c.w, bandY - c.h * 0.14, c.w * 2, c.h * 0.16);
       ctx.restore();
     }
 
@@ -1071,7 +1084,7 @@
   var perf = { t0: 0, frames: 0, step: 0 };
 
   function adaptQuality(now) {
-    if (perf.step >= 2) return;
+    if (perf.step >= 3) return;
     perf.frames += 1;
     if (!perf.t0) { perf.t0 = now; return; }
     var waited = now - perf.t0;
@@ -1079,15 +1092,17 @@
     var fps = perf.frames / (waited / 1000);
     perf.frames = 0;
     perf.t0 = now;
-    if (fps >= 44) return;
+    if (fps >= 50) return;
     perf.step += 1;
     if (perf.step === 1) {
       document.documentElement.classList.add('is-lean');
       motes.length = Math.floor(motes.length / 2);
-    } else {
-      DPR = 1.5;
-      resizeCanvas();
+      return;
     }
+    /* the canvas is the expensive part: give back resolution, then particles */
+    DPR_CAP = perf.step === 2 ? 1.25 : 1;
+    motes.length = Math.floor(motes.length / 2);
+    resizeCanvas();
   }
 
   function frame(t) {
@@ -1396,9 +1411,15 @@
      boot
      ------------------------------------------------------------ */
   function start() {
+    if (window.__boot) window.__boot.set(70, 'developing prints');
     layout();
     resizeCanvas();
     requestAnimationFrame(frame);
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        if (window.__boot) window.__boot.done();
+      });
+    });
   }
 
   canvas.addEventListener('pointermove', onMove, { passive: true });
@@ -1420,10 +1441,29 @@
   window.addEventListener('resize', onResize, { passive: true });
   window.addEventListener('orientationchange', onResize, { passive: true });
 
-  /* rebuild once the mono font is available so captions are not fallback */
-  if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(function () {
-      if (!cards.length) return;
+  /* hold the curtain for the webfonts so captions are never drawn in fallback */
+  var fontsReady = document.fonts && document.fonts.ready;
+  var started = false, startedBeforeFonts = false;
+  function begin() {
+    if (started) return;
+    started = true;
+    start();
+  }
+  if (fontsReady) {
+    if (window.__boot) window.__boot.set(35, 'loading type');
+    fontsReady.then(begin);
+    setTimeout(function () {
+      if (!started) startedBeforeFonts = true;
+      begin();
+    }, 1600);
+  } else {
+    begin();
+  }
+
+  /* the curtain lifted on a timeout, so redraw the captions in the real face */
+  if (fontsReady) {
+    fontsReady.then(function () {
+      if (!startedBeforeFonts || !cards.length) return;
       var cw = cards[0].w;
       var snapshot = cards.map(function (c) {
         return { x: c.x, y: c.y, rot: c.rot, placed: c.placed, home: c.home, reveal: c.reveal };
@@ -1438,6 +1478,4 @@
       resizeCanvas();
     });
   }
-
-  start();
 })();

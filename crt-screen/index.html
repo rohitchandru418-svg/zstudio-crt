@@ -9,9 +9,74 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="crt-screen.css">
-<link rel="stylesheet" href="landing.css">
+<style>
+  /* boot curtain — inline so it paints before any other request resolves */
+  .boot {
+    position: fixed; inset: 0; z-index: 200;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 22px; background: #08070a;
+    transition: opacity .65s cubic-bezier(.4, 0, .2, 1);
+  }
+  .boot.is-done { opacity: 0; pointer-events: none; }
+  .boot__mark {
+    font: 500 12px/1 "JetBrains Mono", ui-monospace, monospace;
+    letter-spacing: .46em; text-indent: .46em; color: #eae5db; opacity: .84;
+  }
+  .boot__bar {
+    width: min(210px, 44vw); height: 2px; overflow: hidden;
+    background: rgb(234 229 219 / .12);
+  }
+  .boot__bar i {
+    display: block; height: 100%; width: 100%; background: #eae5db;
+    transform: scaleX(.06); transform-origin: left;
+    transition: transform .5s cubic-bezier(.4, 0, .2, 1);
+  }
+  .boot__label {
+    font: 400 10px/1 "JetBrains Mono", ui-monospace, monospace;
+    letter-spacing: .3em; text-indent: .3em; text-transform: uppercase;
+    color: rgb(234 229 219 / .42); margin-top: 2px; transition: opacity .3s ease;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .boot, .boot__bar i, .boot__label { transition-duration: .01ms; }
+  }
+</style>
+<link rel="stylesheet" href="landing.css?v=75">
 </head>
 <body>
+  <div class="boot" id="boot" aria-hidden="true">
+    <div class="boot__mark">ZSTUDIO</div>
+    <div class="boot__bar"><i id="bootBar"></i></div>
+    <div class="boot__label" id="bootLabel">warming the tube</div>
+  </div>
+
+  <script>
+    window.__boot = (function () {
+      var el = null, t0 = Date.now(), MIN = 850;
+      /* never leave the curtain up if the script fails to boot */
+      var safety = setTimeout(function () {
+        var e = node(); if (e) e.classList.add('is-done');
+      }, 6000);
+      function node() { return el || (el = document.getElementById('boot')); }
+      return {
+        set: function (pct, label) {
+          var e = node(); if (!e) return;
+          var bar = e.querySelector('.boot__bar i');
+          if (bar) bar.style.transform = 'scaleX(' + (pct / 100) + ')';
+          var l = e.querySelector('.boot__label');
+          if (l && label) l.textContent = label;
+        },
+        done: function () {
+          var e = node(); if (!e) return;
+          clearTimeout(safety);
+          var wait = Math.max(0, MIN - (Date.now() - t0));
+          setTimeout(function () {
+            e.classList.add('is-done');
+            setTimeout(function () { if (e.parentNode) e.parentNode.removeChild(e); }, 700);
+          }, wait);
+        }
+      };
+    })();
+  </script>
   <div class="crt" id="crt">
     <div class="crt__screen" id="crtScreen">
       <div class="crt__content" id="crtContent">
@@ -134,6 +199,6 @@
   </div>
 
   <script src="crt-screen.js"></script>
-  <script src="landing.js"></script>
+  <script src="landing.js?v=75"></script>
 </body>
 </html>
