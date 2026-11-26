@@ -15,9 +15,13 @@
   --m-cream: #efe8dc;
   --m-muted: #8f877b;
   --pulse: 0;
+  /* oryzo's AI heat ramp, verbatim from #features-temperature-slider__bar:
+     linear-gradient(180deg,#fdfeed,#ffbf02 17%,#e9500e 32%,#cd197d,#8c019c,#250187,#030310)
+     wrapped into a conic and mirrored at the halfway point so it loops */
   --mv-grad: conic-gradient(from var(--mv-a),
-    #ffe6bd, #ffb020, #e9500e, #cd197d, #8c019c, #3b2bd6,
-    #8c019c, #cd197d, #e9500e, #ffb020, #ffe6bd);
+    #fdfeed, #ffbf02 8.5%, #e9500e 16%, #cd197d 25%, #8c019c 33%, #250187 42%,
+    #030310 50%,
+    #250187 58%, #8c019c 67%, #cd197d 75%, #e9500e 84%, #ffbf02 91.5%, #fdfeed);
 
   position: absolute;
   inset: 0;
@@ -65,25 +69,34 @@
 }
 
 /* ------------------------------------------------------------
-   the glow — one gradient, two layers: a soft wash bleeding in
-   from the edge and a crisp ring on it. --pulse breathes both.
+   the glow — oryzo's own, values lifted verbatim from oryzo.ai's
+   index.css and turned inward so they bloom off the glass edge:
+
+   .video-overlay__glow    0 0 10px 3px #ff8c0099, 0 0 60px 45px #e6500a40
+   .video-overlay__border  inset 0 0 5px 2px #ffa00099,
+                           inset 0 0 15px 8px #e07010,
+                           inset 0 0 35px 15px #e6640a73,
+                           inset 0 0 45px 20px #e6500a59
+   and their --pulse curve for opacity and saturate/brightness.
    ------------------------------------------------------------ */
-/* inward wash — sits above the panel's own background to be seen */
 .mv-glow {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 3;
-  background: var(--mv-grad);
-  -webkit-mask: radial-gradient(ellipse 50% 50% at 50% 50%,
-    #0000 92.5%, rgb(0 0 0 / .45) 96.5%, #000 100%);
-  mask: radial-gradient(ellipse 50% 50% at 50% 50%,
-    #0000 92.5%, rgb(0 0 0 / .45) 96.5%, #000 100%);
-  /* screen so the gradient reads as light spilling in, not paint */
-  mix-blend-mode: screen;
-  opacity: calc(.5 + var(--pulse) * .3);
-  filter: saturate(1.1);
-  animation: mv-turn 26s linear infinite;
+  /* colours, alphas and the --pulse curve are exactly oryzo's; only the
+     blur/spread is re-scaled for the tube. --gk shrinks it further on
+     small screens, where the same 45px covers far more of the glass. */
+  --gk: 1;
+  box-shadow:
+    inset 0 0 calc(13px * var(--gk)) calc(4px * var(--gk)) #ff8c0099,
+    inset 0 0 calc(6px * var(--gk)) calc(3px * var(--gk)) #ffa00099,
+    inset 0 0 calc(20px * var(--gk)) calc(10px * var(--gk)) #e07010,
+    inset 0 0 calc(45px * var(--gk)) calc(20px * var(--gk)) #e6640a73,
+    inset 0 0 calc(60px * var(--gk)) calc(26px * var(--gk)) #e6500a59,
+    inset 0 0 calc(45px * var(--gk)) calc(34px * var(--gk)) #e6500a40;
+  opacity: calc(.4 + var(--pulse) * .6);
+  filter: saturate(calc(.4 + var(--pulse) * 1.6)) brightness(calc(.6 + var(--pulse) * .6));
 }
 
 /* the ring itself */
@@ -92,7 +105,7 @@
   inset: 0;
   pointer-events: none;
   z-index: 4;
-  padding: 3px;
+  padding: 4px;
   background: var(--mv-grad);
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
@@ -102,9 +115,29 @@
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  opacity: calc(.62 + var(--pulse) * .38);
-  filter: saturate(1.15) brightness(calc(.85 + var(--pulse) * .35));
+  opacity: calc(.7 + var(--pulse) * .3);
+  filter: saturate(1.35) brightness(calc(.95 + var(--pulse) * .4));
   animation: mv-turn 14s linear infinite reverse;
+}
+
+/* the same ramp again, blurred, so the colour reads as light and not
+   as a hairline — half the ramp is near-black, which hides a 3px ring */
+.mv-rim::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 4px;
+  background: var(--mv-grad);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  filter: blur(18px) saturate(1.8);
+  opacity: calc(.5 + var(--pulse) * .4);
 }
 
 @keyframes mv-turn { to { --mv-a: 360deg; } }
@@ -495,12 +528,16 @@
    ------------------------------------------------------------ */
 @media (max-width: 760px) {
   .mv-panel {
-    padding: 48px 26px calc(26px + env(safe-area-inset-bottom));
+    /* the barrel's bottom curve eats the last ~40px, so the footer sits clear */
+    padding: 48px 26px calc(48px + env(safe-area-inset-bottom));
   }
 
   .mv-greet { font-size: 21px; max-width: none; }
 
-  .mv-glow { filter: none; }
+  .mv-glow { --gk: .5; }
+
+  .mv-rim { padding: 3px; }
+  .mv-rim::before { padding: 3px; filter: blur(10px) saturate(1.8); }
 
   .mv-inputrow { position: sticky; bottom: 0; background: rgb(11 9 8 / .96); }
   .mv-send { padding: 8px 10px; }

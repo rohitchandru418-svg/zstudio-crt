@@ -6,9 +6,8 @@
 (function () {
   if (window.__marvin) return;
 
-  var PANEL_CSS = 'marvin-panel.css?v=23';
-  var PANEL_JS = 'marvin-panel.js?v=23';
-  var NUDGE_KEY = 'marvin.nudged';
+  var PANEL_CSS = 'marvin-panel.css?v=28';
+  var PANEL_JS = 'marvin-panel.js?v=28';
 
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -90,16 +89,42 @@
       '<rect x="15.2" y="26.8" width="57.6" height="39.4" rx="5.4" fill="url(#mGlass)"/>' +
       '<rect class="marvin__glow" x="15.2" y="26.8" width="57.6" height="39.4" rx="5.4" fill="url(#mPhos)"/>' +
 
-      /* the face */
+      /* the face — one layer per expression, swapped by data-emote */
       '<g id="mEyesTrack">' +
         '<circle cx="34.7" cy="45.2" r="7.4" fill="url(#mEyeGlow)" opacity=".42"/>' +
         '<circle cx="53.3" cy="45.2" r="7.4" fill="url(#mEyeGlow)" opacity=".42"/>' +
-        '<g class="marvin__eyes">' +
+
+        '<g class="m-ex m-ex--idle marvin__eyes">' +
           '<rect x="31.4" y="39.8" width="6.6" height="10.8" rx="3.3" fill="#ffd7a4"/>' +
           '<rect x="50" y="39.8" width="6.6" height="10.8" rx="3.3" fill="#ffd7a4"/>' +
         '</g>' +
+
+        '<g class="m-ex m-ex--happy" fill="none" stroke="#ffd7a4" stroke-width="2.6" stroke-linecap="round">' +
+          '<path d="M30.6 46.4 Q34.7 40.4 38.8 46.4"/>' +
+          '<path d="M49.2 46.4 Q53.3 40.4 57.4 46.4"/>' +
+        '</g>' +
+
+        '<g class="m-ex m-ex--wink">' +
+          '<path d="M30.6 46.4 Q34.7 40.4 38.8 46.4" fill="none" stroke="#ffd7a4" stroke-width="2.6" stroke-linecap="round"/>' +
+          '<rect x="49.9" y="44.4" width="6.8" height="2.4" rx="1.2" fill="#ffd7a4"/>' +
+        '</g>' +
+
+        '<g class="m-ex m-ex--love" fill="#ffd7a4">' +
+          '<path d="M34.7 50.2c-3.4-2.4-5.2-4.1-5.2-6.1a2.8 2.8 0 0 1 5.2-1.5 2.8 2.8 0 0 1 5.2 1.5c0 2-1.8 3.7-5.2 6.1z"/>' +
+          '<path d="M53.3 50.2c-3.4-2.4-5.2-4.1-5.2-6.1a2.8 2.8 0 0 1 5.2-1.5 2.8 2.8 0 0 1 5.2 1.5c0 2-1.8 3.7-5.2 6.1z"/>' +
+        '</g>' +
+
+        '<g class="m-ex m-ex--shock" fill="#ffd7a4">' +
+          '<circle cx="34.7" cy="45.2" r="5.1"/>' +
+          '<circle cx="53.3" cy="45.2" r="5.1"/>' +
+        '</g>' +
       '</g>' +
-      '<rect x="40.7" y="55.6" width="6.6" height="1.7" rx=".85" fill="#ffd7a4" fill-opacity=".36"/>' +
+
+      '<g class="m-mouth">' +
+        '<rect class="m-mouth__l m-mouth__l--idle" x="40.7" y="55.6" width="6.6" height="1.7" rx=".85" fill="#ffd7a4" fill-opacity=".36"/>' +
+        '<path class="m-mouth__l m-mouth__l--happy" d="M39.7 55.2 Q44 60.1 48.3 55.2" fill="none" stroke="#ffd7a4" stroke-opacity=".6" stroke-width="1.6" stroke-linecap="round"/>' +
+        '<ellipse class="m-mouth__l m-mouth__l--shock" cx="44" cy="57.6" rx="2" ry="2.6" fill="#ffd7a4" fill-opacity=".55"/>' +
+      '</g>' +
 
       /* glass thickness catching the light, and the tube's spill on the chassis */
       '<rect x="14.5" y="26.1" width="59" height="40.9" rx="6" fill="none" stroke="#fff4e2" stroke-opacity=".07"/>' +
@@ -138,20 +163,81 @@
   bob.appendChild(body);
   btn.appendChild(bob);
 
-  var label = el('span', 'marvin__label', "Hi. Tell me what's broken.");
-  label.setAttribute('aria-hidden', 'true');
-
-  var bubble = el('div', 'marvin__bubble', 'Stuck with manual work?');
-  bubble.setAttribute('role', 'status');
+  /* ----------------------------------------------------------
+     the tooltip — one bubble, two jobs: a greeting once the
+     tube finishes booting, a fresh line on every hover
+     ---------------------------------------------------------- */
+  var bubble = el('div', 'marvin__bubble');
+  bubble.setAttribute('aria-hidden', 'true');
 
   dock.appendChild(btn);
-  dock.appendChild(label);
   dock.appendChild(bubble);
   document.body.appendChild(dock);
+
+  var GREETING = "Hi. Tell me what's broken.";
+
+  var LINES = [
+    'Ask me about your workflow.',
+    'I have opinions about spreadsheets.',
+    'Stuck with manual work?',
+    'Tell me what hurts.',
+    'Nine tabs open? I can fix that.',
+    'Where does the work pile up?',
+    'I run on curiosity and heat.',
+    'Say the messy part out loud.'
+  ];
+
+  /* dealt from a shuffled bag so no line repeats until all are used */
+  var bag = [];
+
+  function nextLine() {
+    if (!bag.length) {
+      bag = LINES.slice();
+      for (var i = bag.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var t = bag[i]; bag[i] = bag[j]; bag[j] = t;
+      }
+    }
+    return bag.pop();
+  }
+
+  var sayTimer = 0, hoverSay = false;
+
+  function say(text, ms) {
+    bubble.textContent = text;
+    bubble.classList.add('is-on');
+    clearTimeout(sayTimer);
+    sayTimer = setTimeout(hide, ms);
+  }
+
+  function hide() {
+    clearTimeout(sayTimer);
+    bubble.classList.remove('is-on');
+    hoverSay = false;
+  }
 
   var eyesTrack = body.querySelector('#mEyesTrack');
   var eyes = body.querySelector('.marvin__eyes');
   var glow = body.querySelector('.marvin__glow');
+
+  /* ----------------------------------------------------------
+     expressions — one face layer at a time
+     ---------------------------------------------------------- */
+  var EMOTES = ['happy', 'wink', 'love', 'shock'];
+  var EMOTE_MS = { happy: 1500, wink: 1200, love: 1700, shock: 1000 };
+  var emoteTimer = 0;
+
+  function emote(name, ms) {
+    body.setAttribute('data-emote', name);
+    clearTimeout(emoteTimer);
+    emoteTimer = setTimeout(function () {
+      body.setAttribute('data-emote', '');
+    }, ms || EMOTE_MS[name] || 1200);
+  }
+
+  function anyEmote() {
+    return EMOTES[Math.floor(Math.random() * EMOTES.length)];
+  }
 
   /* ----------------------------------------------------------
      idle life: eyes follow, blink, flicker
@@ -199,24 +285,67 @@
         flicker();
       }, 7000 + Math.random() * 6000);
     })();
+
+    /* the face idles through its moods so it never looks frozen */
+    (function moods() {
+      setTimeout(function () {
+        if (!document.hidden && !btn.matches(':hover') &&
+            btn.getAttribute('aria-expanded') !== 'true') {
+          emote(anyEmote());
+        }
+        moods();
+      }, 9000 + Math.random() * 9000);
+    })();
   }
 
   /* ----------------------------------------------------------
-     the one nudge, once per session
+     the greeting: once the boot curtain lifts
      ---------------------------------------------------------- */
-  var nudgeTimer = setTimeout(function () {
-    if (sessionStorage.getItem(NUDGE_KEY)) return;
-    if (btn.getAttribute('aria-expanded') === 'true') return;
-    try { sessionStorage.setItem(NUDGE_KEY, '1'); } catch (e) {}
-    bubble.classList.add('is-on');
+  var greeted = false;
+
+  function greet() {
+    if (greeted || btn.getAttribute('aria-expanded') === 'true') return;
+    greeted = true;
+    say(GREETING, 12000);
+    emote('happy', 2200);
     if (!reduce) {
       bob.classList.add('is-nudging');
       bob.addEventListener('animationend', function () {
         bob.classList.remove('is-nudging');
       }, { once: true });
     }
-    setTimeout(function () { bubble.classList.remove('is-on'); }, 5200);
-  }, 8000);
+  }
+
+  document.addEventListener('boot:done', greet);
+
+  (function waitForBoot() {
+    if (!document.getElementById('boot') || window.__bootDone) {
+      setTimeout(greet, 350);
+      return;
+    }
+    setTimeout(waitForBoot, 200);
+  })();
+
+  /* ----------------------------------------------------------
+     hover: a new line and a new face each time
+     ---------------------------------------------------------- */
+  btn.addEventListener('pointerenter', function () {
+    if (btn.getAttribute('aria-expanded') === 'true') return;
+    hoverSay = true;
+    say(nextLine(), 3600);
+    if (!reduce) emote(anyEmote());
+  });
+
+  btn.addEventListener('pointerleave', function () {
+    if (!hoverSay) return;
+    hide();
+  });
+
+  btn.addEventListener('focus', function () {
+    if (!btn.matches(':focus-visible')) return;
+    if (btn.getAttribute('aria-expanded') === 'true') return;
+    say(nextLine(), 3600);
+  });
 
   /* ----------------------------------------------------------
      lazy chunk loading
@@ -247,8 +376,8 @@
   }
 
   function open() {
-    clearTimeout(nudgeTimer);
-    bubble.classList.remove('is-on');
+    hide();
+    emote('happy', 1000);
     loadPanel().then(function (panel) {
       panel.open({ dock: dock, trigger: btn });
     }).catch(function () {

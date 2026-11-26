@@ -88,31 +88,55 @@
 .marvin:hover .marvin__eyes,
 .marvin:focus-visible .marvin__eyes { transform: scaleY(1.14); }
 
-/* the label that slides in beside him */
-.marvin__label {
-  pointer-events: none;
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 10px;
-  line-height: 1.4;
-  letter-spacing: .2em;
-  text-transform: uppercase;
-  text-align: right;
-  white-space: nowrap;
-  color: #efe8dc;
-  opacity: .88;
-  transform: translate3d(0, 0, 0);
-  transition: opacity .3s ease, transform .3s cubic-bezier(.2, .8, .3, 1);
+/* ------------------------------------------------------------
+   expressions — one face layer visible at a time
+   ------------------------------------------------------------ */
+.m-ex,
+.m-mouth__l {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: opacity .12s ease, transform .22s cubic-bezier(.3, 1.5, .5, 1);
 }
 
-.marvin:hover + .marvin__label,
-.marvin:focus-visible + .marvin__label { opacity: 1; transform: translate3d(-3px, 0, 0); }
+.m-ex { opacity: 0; transform: scale(.82); }
+.m-ex--idle { opacity: 1; transform: none; }
 
-/* the once-per-session nudge */
+.marvin__body[data-emote="happy"] .m-ex--idle,
+.marvin__body[data-emote="wink"] .m-ex--idle,
+.marvin__body[data-emote="love"] .m-ex--idle,
+.marvin__body[data-emote="shock"] .m-ex--idle,
+.marvin__body[data-emote="happy"] .marvin__eyes,
+.marvin__body[data-emote="wink"] .marvin__eyes,
+.marvin__body[data-emote="love"] .marvin__eyes,
+.marvin__body[data-emote="shock"] .marvin__eyes { opacity: 0; }
+
+.marvin__body[data-emote="happy"] .m-ex--happy,
+.marvin__body[data-emote="wink"] .m-ex--wink,
+.marvin__body[data-emote="love"] .m-ex--love,
+.marvin__body[data-emote="shock"] .m-ex--shock {
+  opacity: 1;
+  transform: none;
+}
+
+.m-mouth__l { opacity: 0; }
+.m-mouth__l--idle { opacity: 1; }
+.marvin__body[data-emote="happy"] .m-mouth__l--idle,
+.marvin__body[data-emote="wink"] .m-mouth__l--idle,
+.marvin__body[data-emote="love"] .m-mouth__l--idle,
+.marvin__body[data-emote="shock"] .m-mouth__l--idle { opacity: 0; }
+.marvin__body[data-emote="happy"] .m-mouth__l--happy,
+.marvin__body[data-emote="love"] .m-mouth__l--happy,
+.marvin__body[data-emote="shock"] .m-mouth__l--shock { opacity: 1; }
+
+/* the tooltip that carries the greeting and the hover lines */
 .marvin__bubble {
   position: absolute;
   right: 6px;
   bottom: calc(100% + 10px);
-  max-width: 200px;
+  /* the dock is only as wide as the bot, so max-content keeps the tooltip
+     from wrapping to the bot's width */
+  width: max-content;
+  max-width: 220px;
   padding: 9px 12px;
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 10px;
@@ -133,7 +157,7 @@
 .marvin__bubble::after {
   content: "";
   position: absolute;
-  right: 26px;
+  right: 38px;
   bottom: -4px;
   width: 7px;
   height: 7px;
@@ -169,12 +193,13 @@
 @media (max-width: 760px) {
   .marvin-dock { right: 16px; bottom: 16px; gap: 10px; }
   .marvin { width: 72px; height: 72px; }
-  .marvin__label { display: none; }
+  .marvin__bubble { max-width: 180px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .marvin__bob,
   .marvin__bob.is-nudging { animation: none; }
   .marvin__body { transition: none; }
-  .marvin__label, .marvin__bubble { transition: opacity .2s linear; transform: none; }
+  .marvin__bubble { transition: opacity .2s linear; transform: none; }
+  .m-ex, .m-mouth__l { transition: opacity .12s linear; }
 }
