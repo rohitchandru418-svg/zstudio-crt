@@ -200,8 +200,22 @@
     var g = c.getContext('2d');
     g.scale(2, 2);
 
-    g.fillStyle = '#e9e4da';
+    /* stock is never a flat fill: it falls warm to cool, and it has a fibre */
+    var paper = g.createLinearGradient(0, 0, cw * 0.22, ch);
+    paper.addColorStop(0, '#f3eee5');
+    paper.addColorStop(0.55, '#e9e4da');
+    paper.addColorStop(1, '#ddd7ca');
+    g.fillStyle = paper;
     g.fillRect(0, 0, cw, ch);
+
+    var fib = mulberry32(77 + index * 131);
+    g.globalAlpha = 0.05;
+    for (var f = 0; f < 1100; f += 1) {
+      g.fillStyle = fib() > 0.5 ? '#ffffff' : '#3a342b';
+      g.fillRect(fib() * cw, fib() * ch, 0.7, 0.7);
+    }
+    g.globalAlpha = 1;
+
     g.strokeStyle = 'rgba(0,0,0,0.10)';
     g.lineWidth = 1;
     g.strokeRect(0.5, 0.5, cw - 1, ch - 1);
@@ -223,6 +237,23 @@
     g.strokeStyle = 'rgba(0,0,0,0.16)';
     g.lineWidth = 0.8;
     g.strokeRect(pad, pad, pw, ph);
+
+    /* the print sits a hair below the surface, so the paper shades it */
+    var well = g.createLinearGradient(0, pad, 0, pad + ch * 0.045);
+    well.addColorStop(0, 'rgba(12,10,8,0.34)');
+    well.addColorStop(1, 'rgba(12,10,8,0)');
+    g.fillStyle = well;
+    g.fillRect(pad, pad, pw, ch * 0.045);
+
+    var lip = g.createLinearGradient(0, pad + ph - ch * 0.03, 0, pad + ph);
+    lip.addColorStop(0, 'rgba(255,250,240,0)');
+    lip.addColorStop(1, 'rgba(255,250,240,0.20)');
+    g.fillStyle = lip;
+    g.fillRect(pad, pad + ph - ch * 0.03, pw, ch * 0.03);
+
+    /* the cut edge, and the shade under it */
+    g.fillStyle = 'rgba(0,0,0,0.16)';
+    g.fillRect(0, ch - 1.6, cw, 1.6);
 
     var baseY = ch - cw * 0.105;
     g.textBaseline = 'middle';
