@@ -238,7 +238,7 @@
         tx: 0, ty: 0, hrot: 0, trot: 0,
         rot: 0, tilt: 0,
         vx: 0, vy: 0, vrot: 0,
-        lift: 0, liftV: 0,
+        lift: 0, liftV: 0, ax: 0, ay: 0, asway: 0, lx: 0, ly: 0, lxT: 0, lyT: 0,
         bend: 0, bendV: 0,
         hover: false, drag: false, home: true,
         grabX: 0, grabY: 0,
@@ -466,7 +466,9 @@
     var c = pick(nx, ny);
     cards.forEach(function (card) {
       card.hover = card === c;
-      card.tilt = card === c ? clamp((nx - card.x) * 0.0004, -0.05, 0.05) : 0;
+      card.tilt = card === c ? clamp((nx - card.x) * 0.0006, -0.075, 0.075) : 0;
+      card.lxT = card === c ? clamp((nx - card.x) / (card.w * 1.7), -1, 1) : 0;
+      card.lyT = card === c ? clamp((ny - card.y) / (card.h * 1.7), -1, 1) : 0;
     });
     canvas.style.cursor = c ? 'grab' : 'default';
   }
@@ -532,13 +534,18 @@
   var windEnergy = 0;
   var windPan = 0;
 
+  var frameNow = 0;
+  var calmNow = false;
+
   function simulate(dt, now) {
+    frameNow = now;
     var decay = Math.exp(-11 * dt);
     pointer.vx *= decay;
     pointer.vy *= decay;
 
     windEnergy = 0;
     var calm = reduceMotion.matches;
+    calmNow = calm;
 
 
     cards.forEach(function (c) {
@@ -561,12 +568,12 @@
         c.vx *= Math.exp(-damp * dt);
         c.vy *= Math.exp(-damp * dt);
 
-        if (!calm && c.home) {
+        if (c.home) {
           var dx = c.x - pointer.x;
           var dy = c.y - pointer.y;
           var dist = Math.sqrt(dx * dx + dy * dy) || 1;
           if (dist < WIND_R) {
-            var g = 1 - dist / WIND_R;
+            var g = (1 - dist / WIND_R) * (calm ? 0.34 : 1);
             var ff = g * Math.sqrt(g);
             c.vx += (pointer.vx * AIR * ff - c.vx) * AIR_PULL * dt;
             c.vy += (pointer.vy * AIR * ff - c.vy) * AIR_PULL * dt;
@@ -620,6 +627,18 @@
       if (Math.abs(liftTarget - c.lift) < 0.004 && Math.abs(c.liftV) < 0.06) {
         c.lift = liftTarget; c.liftV = 0;
       }
+
+      /* a still pointer must never mean a still scene: every print drifts
+         on its own phase, and the drift fades out as the card is lifted */
+      var calmK = calm ? 0.34 : 1;
+      var amb = c.drag ? 0 : (1 - clamp(c.lift, 0, 1)) * calmK;
+      c.ax = Math.sin(now * 0.00061 + c.i * 2.13) * 7.0 * amb;
+      c.ay = Math.cos(now * 0.00047 + c.i * 1.41) * 9.0 * amb;
+      c.asway = Math.sin(now * 0.00039 + c.i * 2.77) * 0.022 * amb;
+
+      var lean = 1 - Math.exp(-13 * dt);
+      c.lx += (c.lxT - c.lx) * lean;
+      c.ly += (c.lyT - c.ly) * lean;
 
       var bendTarget = calm ? 0 : clamp(c.vx * 0.012, -14, 14) + Math.sin(now * 0.0011 + c.i * 1.7) * 0.5;
       c.bendV += (bendTarget - c.bend) * 110 * dt;
@@ -692,7 +711,7 @@
      ------------------------------------------------------------ */
   function drawCard(c) {
     var liftN = clamp(c.lift, 0, 1.2);
-    var s = 1 + liftN * 0.045;
+    var s = 1 + liftN * 0.075;
 
     /* cast shadow — a wide pool of occlusion under the print */
     var sy = c.y + c.h * 0.47 + liftN * 20;
@@ -700,7 +719,7 @@
     var amb = 0.58 - liftN * 0.16;
 
     ctx.save();
-    ctx.translate(c.x, sy);
+    ctx.translate(c.x + (c.ax || 0) * 0.35, sy);
     ctx.scale(1, 0.22 + liftN * 0.06);
     var g1 = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
     g1.addColorStop(0, 'rgba(0,0,0,' + amb.toFixed(3) + ')');
@@ -713,8 +732,9 @@
     ctx.restore();
 
     ctx.save();
-    ctx.translate(c.x, c.y);
-    ctx.rotate(c.rot);
+    ctx.translate(c.x + (c.ax || 0), c.y + (c.ay || 0));
+    ctx.rotate(c.rot + (c.asway || 0));
+    if (c.lx || c.ly) ctx.transform(1, c.ly * 0.075, c.lx * 0.075, 1, 0, 0);
     ctx.scale(s, s);
 
     /* contact shadow hugging the lower edge */
@@ -738,6 +758,21 @@
         0, i * strip, sw, strip,
         -c.w / 2 + off, -c.h / 2 + (i * c.h) / n, c.w, c.h / n + 0.7
       );
+    }
+
+    /* a slow rake of tube light travels across the gloss — the print is never still */
+    if (!calmNow) {
+      var sweep = ((frameNow * 0.00006 + c.i * 0.17) % 1 + 1) % 1;
+      var bx = -c.w * 0.7 + sweep * c.w * 1.4;
+      var rake = ctx.createLinearGradient(bx - c.w * 0.30, -c.h * 0.5, bx + c.w * 0.30, c.h * 0.5);
+      rake.addColorStop(0, 'rgba(255,250,240,0)');
+      rake.addColorStop(0.5, 'rgba(255,250,240,0.055)');
+      rake.addColorStop(1, 'rgba(255,250,240,0)');
+      ctx.save();
+      ctx.globalCompositeOperation = 'soft-light';
+      ctx.fillStyle = rake;
+      ctx.fillRect(-c.w / 2, -c.h / 2, c.w, c.h);
+      ctx.restore();
     }
 
     /* lift catches the tube light; the sheet is already lit at rest */
