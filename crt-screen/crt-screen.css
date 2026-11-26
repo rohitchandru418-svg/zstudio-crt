@@ -1,0 +1,147 @@
+/* ============================================================
+   CRT screen — convex (barrel) glass shape
+   The screen fills the viewport; the frame is only the margin
+   the barrel path eats at the corners and mid-edges.
+   Geometry is generated in crt-screen.js and applied as clip-path.
+   ============================================================ */
+
+:root {
+  --crt-bezel: #050403;
+  --crt-glass: #12100e;
+  --crt-glow: 255 238 214;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  overscroll-behavior: none;
+}
+
+body {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.crt {
+  position: fixed;
+  inset: 0;
+  isolation: isolate;
+}
+
+/* --- the screen: everything you put inside is clipped to the barrel --- */
+.crt__screen {
+  position: fixed;
+  inset: 0;
+  background: var(--crt-glass);
+  overflow: hidden;
+  /* clip-path set by JS */
+}
+
+.crt__content {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+/* --- glass: dome light + edge falloff + one soft reflection --- */
+.crt__glass {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    /* centre lift: the tube bulges toward you */
+    radial-gradient(112% 84% at 50% 38%,
+      rgb(var(--crt-glow) / .130) 0%,
+      rgb(var(--crt-glow) / .052) 40%,
+      transparent 70%),
+    /* corners fall away */
+    radial-gradient(138% 118% at 50% 50%,
+      transparent 38%,
+      rgb(0 0 0 / .62) 100%);
+  /* clip-path set by JS */
+}
+
+/* lamp reflection: one soft hot spot, the strongest convexity cue */
+.crt__glass::before {
+  content: "";
+  position: absolute;
+  left: 18%;
+  top: 6%;
+  width: 46%;
+  height: 44%;
+  background: radial-gradient(closest-side,
+    rgb(255 250 240 / .085),
+    rgb(255 250 240 / .028) 52%,
+    transparent 100%);
+  filter: blur(18px);
+}
+
+/* a single, static window reflection across the curved face */
+.crt__glass::after {
+  content: "";
+  position: absolute;
+  inset: -25%;
+  background: linear-gradient(112deg,
+    transparent 40%,
+    rgb(255 255 255 / .045) 46.5%,
+    rgb(255 255 255 / .016) 51%,
+    transparent 57%);
+  filter: blur(22px);
+}
+
+/* --- rim shading, above the content, so edges curve away from you --- */
+.crt__bevel {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 96px rgb(0 0 0 / .96),
+    inset 0 0 32px rgb(0 0 0 / .80),
+    inset 0 0 10px rgb(0 0 0 / .60);
+  /* clip-path set by JS */
+}
+
+/* --- the dark frame: viewport minus the barrel window --- */
+.crt__bezel {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: var(--crt-bezel);
+  /* clip-path set by JS (evenodd) */
+}
+
+/* --- 1.5px glass edge --- */
+.crt__stroke {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  /* clip-path set by JS */
+}
+
+/* ------------------------------------------------------------
+   Optional test pattern: append ?grid=1 to see the curvature.
+   Not part of the shape — it only reveals it.
+   ------------------------------------------------------------ */
+.crt__grid {
+  position: absolute;
+  inset: 0;
+  display: none;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(to right,
+      rgb(255 255 255 / .10) 0 1px, transparent 1px 72px),
+    repeating-linear-gradient(to bottom,
+      rgb(255 255 255 / .10) 0 1px, transparent 1px 72px),
+    repeating-linear-gradient(to bottom,
+      transparent 0 3px, rgb(0 0 0 / .16) 3px 4px);
+  opacity: .55;
+}
+
+.crt--grid .crt__grid { display: block; }
