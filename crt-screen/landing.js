@@ -897,6 +897,8 @@
     bringToFront(c);
 
     var exitX = safe.left + c.w / 2 + 10;
+    var exitTop = safe.top;
+    var exitBottom = slotRect ? Math.max(exitTop + c.h, slotRect.top - 18) : safe.bottom;
     var others = cards.filter(function (o) { return o !== c && o.home; });
     others.sort(function (a, b) { return a.y - b.y; });
     others.forEach(function (o, i) {
@@ -904,8 +906,8 @@
       o.locked = true;
       o.exitTarget = {
         x: exitX,
-        y: clamp(safe.top + o.h / 2 + (i + 0.5) * (safe.bottom - safe.top) / others.length,
-                 safe.top + o.h / 2, safe.bottom - o.h / 2),
+        y: clamp(exitTop + o.h / 2 + (i + 0.5) * (exitBottom - exitTop) / others.length,
+                 safe.top + o.h / 2, exitBottom - o.h / 2),
         rot: o.rot
       };
       o.exitAt = performance.now() + i * 70;
@@ -1176,8 +1178,11 @@
         c.x += c.vx * dt;
         c.y += c.vy * dt;
 
-        /* never let a sheet slide under the bezel */
-        c.x = clamp(c.x, -c.w * 0.35, W + c.w * 0.35);
+        /* never let a sheet slide under the bezel; the inspect exit stack is
+           clamped to the safe area so its spring cannot overshoot off-screen */
+        var lockEdge = c.locked && inspect.active;
+        c.x = clamp(c.x, lockEdge ? safe.left + c.w / 2 : -c.w * 0.35,
+                         lockEdge ? safe.right - c.w / 2 : W + c.w * 0.35);
         c.y = clamp(c.y, safe.top + c.h * 0.5, safe.bottom - c.h * 0.5);
 
         if (Math.abs(c.rx - c.x) < 1.2 && Math.abs(c.ry - c.y) < 1.2 &&

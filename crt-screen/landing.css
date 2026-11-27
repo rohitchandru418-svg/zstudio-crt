@@ -291,9 +291,9 @@ body {
    ------------------------------------------------------------ */
 .slot {
   position: absolute;
-  right: calc(var(--pad) + 88px);
+  left: calc(var(--pad) + 88px);
   bottom: var(--pad);
-  left: auto;
+  right: auto;
   width: var(--card-w, 190px);
   height: var(--card-h, 238px);
   display: grid;
@@ -477,7 +477,7 @@ body {
   .sound__wave { width: 36px; }
   .hud__tools { gap: 12px; }
   .lite { font-size: 9.5px; letter-spacing: .14em; }
-  .slot { right: calc(var(--pad) + 76px); }
+  .slot { left: calc(var(--pad) + 76px); right: auto; }
   .slot__label { font-size: 9px; }
 }
 
