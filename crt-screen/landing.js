@@ -1,5 +1,5 @@
 /* ============================================================
-   Zstudio — cards, wind, sound, menu
+   Minsky — cards, wind, sound, menu
    Cards are drawn on a 2D canvas under the CRT glass.
    ============================================================ */
 (function () {
@@ -16,14 +16,12 @@
   var menuBtn  = document.getElementById('menuOpen');
 
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  /* lite mode: the prints stop moving and the canvas only redraws on demand */
-  var lite = document.documentElement.classList.contains('is-lite');
 
   var WORKS = [
     {
       about: true, art: -1,
-      title: 'Zstudio', year: 'About', kind: 'Studio \u00b7 Amsterdam',
-      blurb: 'Zstudio is an independent design and development studio. We build sites, products and interactive worlds for people who care how things feel. Small team, long engagements, and a bias for the tactile detail.'
+      title: 'Minsky', year: 'About', kind: 'Product studio \u00b7 Tamil Nadu',
+      blurb: 'Minsky is a product studio building simple, thoughtful tech systems for your ideas. We design, develop and deploy web apps \u2014 small team, long engagements, and a bias for the tactile detail.'
     },
     {
       art: 0,
@@ -170,7 +168,7 @@
       g.font = '500 ' + (W * 0.034).toFixed(1) + 'px "JetBrains Mono", ui-monospace, monospace';
       g.fillStyle = light(0.42);
       g.textAlign = 'center';
-      g.fillText('ZSTUDIO', W * 0.5, H * 0.78);
+      g.fillText('MINSKY', W * 0.5, H * 0.78);
     } else if (index === 0) {
       /* arcs */
       var cx = W * (0.14 + rnd() * 0.3);
@@ -504,7 +502,7 @@
   }
 
   function resizeCanvas() {
-    DPR = Math.min(lite ? 1 : DPR_CAP, window.devicePixelRatio || 1);
+    DPR = Math.min(DPR_CAP, window.devicePixelRatio || 1);
     canvas.width = Math.round(W * DPR);
     canvas.height = Math.round(H * DPR);
     canvas.style.width = W + 'px';
@@ -691,7 +689,7 @@
   }
 
   function windBlocked() {
-    return lite || reduceMotion.matches || storyOpen || inspect.active || document.hidden;
+    return reduceMotion.matches || storyOpen || inspect.active || document.hidden;
   }
 
   function resetWind() {
@@ -858,7 +856,7 @@
   function place(c) {
     if (!slotRect) return;
     cards.forEach(function (o) { if (o !== c && !o.home) sendHome(o); });
-    if (c.home) c.reveal = lite ? 1 : 0;
+    if (c.home) c.reveal = 0;
     c.home = false;
     c.drag = false;
     c.free = true;
@@ -1108,7 +1106,7 @@
     pointer.vx *= decay;
     pointer.vy *= decay;
 
-    var calm = reduceMotion.matches || lite;
+    var calm = reduceMotion.matches;
     calmNow = calm;
     stepWind(dt, now);
 
@@ -1256,7 +1254,7 @@
     });
 
     computeStack();
-    if (!lite) stepMotes(dt, now);
+    stepMotes(dt, now);
   }
 
   function cardRectOf(c) {
@@ -1293,7 +1291,7 @@
      returning breeze + well hint — the page tidies itself
      ------------------------------------------------------------ */
   function stepBreeze(dt, now) {
-    if (lite || reduceMotion.matches || storyOpen || inspect.active || down || document.hidden) return;
+    if (reduceMotion.matches || storyOpen || inspect.active || down || document.hidden) return;
     if (now - windLastInput < 5000) return;
     if (now - lastBreeze < 18000) return;
     lastBreeze = now;
@@ -1357,7 +1355,7 @@
 
   function stepWellHint(now) {
     if (wellHint.found || wellHint.count >= 2) return;
-    if (lite || reduceMotion.matches || storyOpen || inspect.active || down || document.hidden) return;
+    if (reduceMotion.matches || storyOpen || inspect.active || down || document.hidden) return;
     if (!slotRect) return;
     if (now - windLastInput < 6000) return;
     if (now - wellHint.last < 16000) return;
@@ -1406,7 +1404,6 @@
 
   function makeMotes() {
     motes = [];
-    if (lite) return;
     var n = Math.round(clamp((W * H) / 24000, 34, 120));
     for (var i = 0; i < n; i += 1) {
       var z = 0.3 + Math.random() * 0.7;
@@ -1424,6 +1421,7 @@
   }
 
   function stepMotes(dt, now) {
+    if (reduceMotion.matches) return;
     var damp = Math.exp(-2.4 * dt);
     for (var i = 0; i < motes.length; i += 1) {
       var m = motes[i];
@@ -1763,7 +1761,7 @@
       canvas.classList.toggle('is-lifting', liftAny);
     }
 
-    if (!lite) drawMotes(now);
+    drawMotes(now);
 
     var order = cards.slice().sort(function (a, b) {
       return (a.z || 0) - (b.z || 0) || a.y - b.y;
@@ -1786,11 +1784,11 @@
     ctx.fillStyle = 'rgba(6,5,4,0.42)';
     ctx.fillRect(left, top, c.w, Math.max(0, lineY - top));
     var g = ctx.createLinearGradient(0, lineY - 10, 0, lineY + 10);
-    g.addColorStop(0, 'rgba(255,250,240,0)');
-    g.addColorStop(0.45, 'rgba(255,250,240,0.20)');
-    g.addColorStop(0.5, 'rgba(255,250,240,0.95)');
-    g.addColorStop(0.55, 'rgba(255,250,240,0.20)');
-    g.addColorStop(1, 'rgba(255,250,240,0)');
+    g.addColorStop(0, 'rgba(0,212,107,0)');
+    g.addColorStop(0.45, 'rgba(0,212,107,0.20)');
+    g.addColorStop(0.5, 'rgba(0,212,107,0.95)');
+    g.addColorStop(0.55, 'rgba(0,212,107,0.20)');
+    g.addColorStop(1, 'rgba(0,212,107,0)');
     ctx.fillStyle = g;
     ctx.fillRect(left, lineY - 10, c.w, 20);
     ctx.restore();
@@ -1801,7 +1799,6 @@
      ------------------------------------------------------------ */
   var last = 0;
   var rafId = 0;
-  var forceDraw = false;
   var perf = { t0: 0, frames: 0, step: 0 };
 
   function adaptQuality(now) {
@@ -1826,71 +1823,20 @@
     resizeCanvas();
   }
 
-  /* in lite mode the loop parks itself as soon as nothing is moving, so a
-     still page costs one paint instead of sixty a second */
-  function needsFrame() {
-    if (forceDraw) return true;
-    for (var i = 0; i < cards.length; i += 1) {
-      var c = cards[i];
-      if (c.drag) return true;
-      if (windState.amount > 0.001) return true;
-      if (c.settleLift || c.breeze || c.exitTarget) return true;
-      if (Math.abs(c.windTiltX) > 0.002 || Math.abs(c.windTiltZ) > 0.002 ||
-          Math.abs(c.windLift) > 0.002 || Math.abs(c.windTwist) > 0.002) return true;
-      if (Math.abs(c.bend) > 0.1 || Math.abs(c.bendV) > 0.1) return true;
-      if (c.lift > 0.002 || Math.abs(c.liftV) > 0.01) return true;
-      if (Math.abs(c.x - c.rx) > 0.6 || Math.abs(c.y - c.ry) > 0.6) return true;
-      if (Math.abs(c.vx) > 2 || Math.abs(c.vy) > 2) return true;
-      if (Math.abs(c.vrot) > 0.01) return true;
-      if (Math.abs(c.rot - c.restRot) > 0.002) return true;
-      if (!c.home && (Math.abs(c.x - c.tx) > 0.6 || Math.abs(c.y - c.ty) > 0.6)) return true;
-      if (c.reveal < 1) return true;
-    }
-    return false;
-  }
-
   function loop(t) {
     rafId = 0;
     var dt = last ? Math.min(0.033, (t - last) / 1000) : 0.016;
     last = t;
-    if (!lite) adaptQuality(t);
+    adaptQuality(t);
     simulate(dt, t);
     draw(t);
-    forceDraw = false;
-    if (!lite) Sound.wind(windEnergy, windPan);
-    if (!lite || needsFrame()) rafId = requestAnimationFrame(loop);
-    else last = 0;
+    Sound.wind(windEnergy, windPan);
+    rafId = requestAnimationFrame(loop);
   }
 
   function kick() {
-    forceDraw = true;
     if (!rafId) rafId = requestAnimationFrame(loop);
   }
-
-  function applyLite(on) {
-    lite = on;
-    last = 0;
-    cards.forEach(function (c) {
-      if (on) {
-        c.reveal = 1;
-        c.drag = false;
-        c.lift = 0;
-        c.liftV = 0;
-        c.vx = 0;
-        c.vy = 0;
-        c.vrot = 0;
-        c.ax = 0; c.ay = 0; c.asway = 0;
-      }
-    });
-    resizeCanvas();
-    /* the wind follows the paper: with the paper still, it has to fall silent */
-    if (on && Sound) Sound.wind(0, 0);
-    kick();
-  }
-
-  document.addEventListener('lite:change', function (e) {
-    applyLite(!!(e.detail && e.detail.on));
-  });
 
   /* ------------------------------------------------------------
      sound — synthesised, no assets
@@ -2129,6 +2075,7 @@
     var titleEl = document.getElementById('storyTitle');
     var metaEl = document.getElementById('storyMeta');
     var bodyEl = document.getElementById('storyBody');
+    var eyebrowEl = document.getElementById('storyEyebrow');
     var closeBtn = root && root.querySelector('.story__close');
     var artHost = document.getElementById('storyArt');
     var lastFocus = null;
@@ -2141,6 +2088,7 @@
       titleEl.textContent = work.title;
       metaEl.textContent = work.kind + '  \u00b7  ' + work.year;
       bodyEl.textContent = work.blurb;
+      if (eyebrowEl) eyebrowEl.textContent = work.about ? 'About' : 'Selected work';
 
       /* rebuilt at plate size rather than upscaled, so it stays crisp */
       var plate = buildCard(work, card.i, 720, 880);

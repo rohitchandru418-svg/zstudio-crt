@@ -217,8 +217,6 @@
 .marvin__bubble.is-on { opacity: 1; transform: translate3d(0, 0, 0); }
 
 /* one wobble, then still */
-/* lite mode: the assistant holds still with the rest of the room */
-html.is-lite .marvin__bob { animation: none; }
 
 .marvin__bob.is-nudging { animation: m-nudge 1.5s cubic-bezier(.36, .07, .19, .97); }
 

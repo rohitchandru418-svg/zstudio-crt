@@ -9,7 +9,7 @@
   var STORE = 'marvin.session.v1';
   var GREETING = "Hi. I'm Marvin. What's slowing your team down right now?";
   var CHIPS = ['Quotes take a week', 'Inbox is the queue', 'Reporting is manual', 'Something else'];
-  var HUMAN_LINK = 'mailto:hello@zstudio.dev';
+  var HUMAN_LINK = 'mailto:hello@minsky.in';
   var ENDPOINT = '/api/marvin';
 
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -87,7 +87,7 @@
     channels.appendChild(b);
   });
 
-  var headMeta = el('div', 'mv-head__meta', 'Zstudio // Assistant');
+  var headMeta = el('div', 'mv-head__meta', 'Minsky // Assistant');
   headRight.appendChild(channels);
   headRight.appendChild(headMeta);
 
@@ -254,11 +254,6 @@
   var reduceMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   function pulseFrame(now) {
-    if (liteOn()) {
-      pulseRaf = 0;
-      overlay.style.setProperty('--pulse', '0.75');
-      return;
-    }
     var dt = Math.min(0.05, (now - pulseLast) / 1000);
     pulseLast = now;
     pulseRatio = Math.min(1, pulseRatio + dt * 0.5);
@@ -269,13 +264,10 @@
     pulseRaf = requestAnimationFrame(pulseFrame);
   }
 
-  function liteOn() { return document.documentElement.classList.contains('is-lite'); }
-
   function pulseStart() {
     pulseCancel();
     pulseT0 = pulseLast = performance.now();
-    /* lite mode: a still ring instead of a per-frame filter on a 700px blur */
-    if (reduceMQ.matches || liteOn()) {
+    if (reduceMQ.matches) {
       overlay.style.setProperty('--pulse', '0.75');
       return;
     }
@@ -285,10 +277,6 @@
   function pulseCancel() {
     if (pulseRaf) { cancelAnimationFrame(pulseRaf); pulseRaf = 0; }
   }
-
-  document.addEventListener('lite:change', function () {
-    if (isOpen) pulseStart();
-  });
 
   var isOpen = false;
   var busy = false;
@@ -828,7 +816,7 @@
       a.gaps.forEach(function (g) { out.push('- ' + g); });
       out.push('');
     }
-    out.push('— Marvin, Zstudio');
+    out.push('— Marvin, Minsky');
     return out.join('\n');
   }
 
@@ -932,7 +920,7 @@
     });
 
     var mail = el('a', 'ar__btn', 'Send to a human');
-    mail.href = 'mailto:hello@zstudio.dev?subject=' + encodeURIComponent('Marvin — ' + a.title) +
+    mail.href = 'mailto:hello@minsky.in?subject=' + encodeURIComponent('Marvin — ' + a.title) +
       '&body=' + encodeURIComponent(toMarkdown(a).slice(0, 1800));
 
     act.appendChild(copy); act.appendChild(dl); act.appendChild(mail);
@@ -1140,7 +1128,7 @@
         document.head.appendChild(l);
       }
       var s = document.createElement('script');
-      s.src = 'marvin-mind.js?v=13';
+      s.src = 'marvin-mind.js?v=14';
       s.async = true;
       s.onload = function () {
         if (window.__marvinMind) resolve(window.__marvinMind);

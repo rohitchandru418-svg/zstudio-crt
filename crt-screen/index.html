@@ -3,23 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Zstudio</title>
-<meta name="description" content="Zstudio — independent design and development studio.">
+<title>Minsky</title>
+<meta name="description" content="Minsky — building simple and thoughtful tech systems for your ideas.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script>
-  /* decide before the first paint: a saved choice wins, otherwise the OS
-     motion preference does. Kept inline so no stylesheet has to load first. */
-  (function () {
-    try {
-      var saved = localStorage.getItem('zstudio:lite');
-      if (saved === '1' || (saved === null && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
-        document.documentElement.classList.add('is-lite');
-      }
-    } catch (e) {}
-  })();
-</script>
 <link rel="stylesheet" href="crt-screen.css?v=11">
 <style>
   /* boot curtain — inline so it paints before any other request resolves */
@@ -52,12 +41,12 @@
     .boot, .boot__bar i, .boot__label { transition-duration: .01ms; }
   }
 </style>
-<link rel="stylesheet" href="landing.css?v=84">
-<link rel="stylesheet" href="marvin.css?v=10">
+<link rel="stylesheet" href="landing.css?v=85">
+<link rel="stylesheet" href="marvin.css?v=11">
 </head>
 <body>
   <div class="boot" id="boot" aria-hidden="true">
-    <div class="boot__mark">ZSTUDIO</div>
+    <div class="boot__mark">MINSKY</div>
     <div class="boot__bar"><i id="bootBar"></i></div>
     <div class="boot__label" id="bootLabel">warming the tube</div>
   </div>
@@ -106,7 +95,7 @@
 
         <div class="hud">
           <header class="hud__top">
-            <a class="brand" href="/">Zstudio</a>
+            <a class="brand" href="/" aria-label="Minsky"><span class="brand__logo" aria-hidden="true"></span></a>
 
             <div class="hud__tools">
               <button class="sound" id="soundToggle" type="button" aria-pressed="false" aria-label="Website sound">
@@ -114,21 +103,15 @@
                   <path d="M3 10 Q 8 3 13 10 T 23 10 T 33 10 T 43 10 T 53 10"/>
                 </svg>
               </button>
-
-              <button class="lite" id="liteToggle" type="button" aria-pressed="false"
-                      aria-label="Lite mode"
-                      title="Lite mode &#8212; stop the moving prints, the dust and the tube glow">
-                <span class="lite__dot" aria-hidden="true"></span><span class="lite__text">Lite</span>
-              </button>
             </div>
 
             <button class="menu-open" id="menuOpen" type="button" aria-expanded="false" aria-controls="menu">Menu</button>
           </header>
 
           <section class="hero" aria-labelledby="heroTitle">
-            <p class="hero__eyebrow">Independent design &amp; development studio</p>
+            <p class="hero__eyebrow">Design, develop &amp; deploy web apps</p>
             <h1 class="hero__title" id="heroTitle">Digital work<br>with weight.</h1>
-            <p class="hero__text">Zstudio builds sites, products and interactive worlds for people who care how things feel.</p>
+            <p class="hero__text">Minsky builds simple, thoughtful tech systems for your ideas — sites, products and interactive worlds for people who care how things feel.</p>
             <button class="cta" id="cta" type="button">Start a project<span class="cta__arrow" aria-hidden="true">&#8599;</span></button>
           </section>
 
@@ -144,7 +127,7 @@
             <div class="story__panel">
               <canvas class="story__art" id="storyArt" width="720" height="880" aria-hidden="true"></canvas>
               <div class="story__copy">
-                <p class="story__eyebrow">Selected work</p>
+                <p class="story__eyebrow" id="storyEyebrow">Selected work</p>
                 <h2 class="story__title" id="storyTitle"></h2>
                 <p class="story__meta" id="storyMeta"></p>
                 <p class="story__body" id="storyBody"></p>
@@ -163,12 +146,13 @@
             </div>
             <nav class="menu__nav" aria-label="Main">
               <a class="menu__item" href="#" data-menu-link><span class="menu__index">01</span><span class="menu__label">Works</span></a>
-              <a class="menu__item" href="#" data-menu-link><span class="menu__index">02</span><span class="menu__label">Services</span></a>
-              <a class="menu__item" href="#" data-menu-link><span class="menu__index">03</span><span class="menu__label">Blogs</span></a>
-              <a class="menu__item" href="#" data-menu-link><span class="menu__index">04</span><span class="menu__label">Contact</span></a>
+              <a class="menu__item" href="#" data-menu-link><span class="menu__index">02</span><span class="menu__label">Build With Us</span></a>
+              <a class="menu__item" href="#" data-menu-link><span class="menu__index">03</span><span class="menu__label">Products</span></a>
+              <a class="menu__item" href="#" data-menu-link><span class="menu__index">04</span><span class="menu__label">Blog</span></a>
+              <a class="menu__item" href="#" data-menu-link><span class="menu__index">05</span><span class="menu__label">Contact</span></a>
             </nav>
             <div class="menu__foot">
-              <a href="mailto:hello@zstudio.com">hello@zstudio.com</a>
+              <a href="mailto:hello@minsky.in">hello@minsky.in</a>
             </div>
           </div>
         </div>
@@ -225,9 +209,9 @@
     </svg>
   </div>
 
-  <script src="crt-screen.js"></script>
-  <script src="glow.js?v=16"></script>
-  <script src="landing.js?v=108"></script>
-  <script src="marvin.js?v=19" defer></script>
+  <script src="crt-screen.js?v=12"></script>
+  <script src="glow.js?v=17"></script>
+  <script src="landing.js?v=111"></script>
+  <script src="marvin.js?v=20" defer></script>
 </body>
 </html>

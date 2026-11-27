@@ -443,7 +443,7 @@
       commit: 'I will narrow it to the one place it hurts, ask you the question that changes the answer, and then write the fix.',
       plan: ['Find where the work stops', 'Ask the one question that matters', 'Write the fix', 'Cost it'],
       research: [
-        { domain: 'zstudio.dev', title: 'Notes from twelve intake projects',
+        { domain: 'minsky.in', title: 'Notes from twelve intake projects',
           excerpt: 'In eleven of twelve, the delay was waiting for information, not waiting for work.',
           verdict: 'used' },
         { domain: 'asana.com', title: 'The anatomy of work index',

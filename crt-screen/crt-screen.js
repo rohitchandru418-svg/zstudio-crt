@@ -132,39 +132,6 @@
     if (Number.isFinite(v)) shape[key] = v;
   });
 
-  /* ------------------------------------------------------------
-     lite mode — one switch for the expensive layers
-     ------------------------------------------------------------ */
-  var LITE_KEY = 'zstudio:lite';
-  var liteBtn = document.getElementById('liteToggle');
-
-  function liteOn() {
-    return document.documentElement.classList.contains('is-lite');
-  }
-
-  function setLite(on, persist) {
-    document.documentElement.classList.toggle('is-lite', on);
-    if (liteBtn) {
-      liteBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
-      liteBtn.setAttribute('title', on
-        ? 'Lite mode on \u2014 turn the movement back on'
-        : 'Lite mode \u2014 stop the moving prints, the dust and the tube glow');
-    }
-    if (persist) { try { localStorage.setItem(LITE_KEY, on ? '1' : '0'); } catch (e) {} }
-    document.dispatchEvent(new CustomEvent('lite:change', { detail: { on: on } }));
-  }
-
-  if (liteBtn) {
-    liteBtn.setAttribute('aria-pressed', liteOn() ? 'true' : 'false');
-    liteBtn.addEventListener('click', function () { setLite(!liteOn(), true); });
-  }
-
-  window.crtLite = {
-    on: liteOn,
-    set: setLite,
-    toggle: function () { setLite(!liteOn(), true); }
-  };
-
   window.addEventListener('resize', schedule, { passive: true });
   window.addEventListener('orientationchange', schedule, { passive: true });
   if (window.visualViewport) {
