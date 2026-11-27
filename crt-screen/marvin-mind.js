@@ -220,7 +220,43 @@
             body: 'Steps one and two remove the copying. Step three is what stops it coming back. Step four is the safety net, and it is only worth building once the first three exist.' }
         ],
         gaps: ['Whether your deal fields are custom — step two changes if they are'],
-        followups: ['Cost it properly', 'What if we stay in Pipedrive?', 'Show me step one']
+        followups: ['Cost it properly', 'What if we stay in Pipedrive?', 'Show me step one'],
+        more: {
+          'Cost it properly': {
+            say: 'Two days of your time, two of mine, and nothing new to buy. That is the whole cost.',
+            meta: ['2 days yours', '2 days mine', 'no licence'],
+            section: { h: 'What it costs', kind: 'table',
+              head: ['Item', 'Who', 'Time', 'Money'],
+              rows: [
+                ['Move the price list', 'you', 'half a day', '\u2014'],
+                ['Write the row lookup', 'me', 'one day', '\u2014'],
+                ['The pre-send check', 'me', 'two days', '\u2014'],
+                ['Any new licence', 'nobody', '\u2014', '\u00a30']
+              ] }
+          },
+          'What if we stay in Pipedrive?': {
+            say: 'Then Pipedrive stays the source and the quote reads one deal from it. A little more setup, and no sheet to keep in sync.',
+            verdict: 'Keep Pipedrive as the source. The quote reads one deal instead of rebuilding a table, and nothing is copied twice.',
+            meta: ['3 steps', 'about two days', 'Pipedrive stays'],
+            replace: [
+              { h: 'What changes', kind: 'steps', items: [
+                { t: 'Map the custom fields once', d: 'The forty-character hashes get readable names in one config file.', owner: 'me', effort: 'one day' },
+                { t: 'Read the deal, not the table', d: 'The quote pulls its deal by id. No export, no copy, no drift.', owner: 'me', effort: 'one day' },
+                { t: 'Lock the price fields', d: 'Two people can edit them, and every edit is logged.', owner: 'you', effort: 'a morning' }
+              ] },
+              { h: 'Why this order', kind: 'text',
+                body: 'The mapping comes first because every later step depends on readable names. The read replaces the copy, and the lock is what stops the table coming back.' }
+            ]
+          },
+          'Show me step one': {
+            say: 'Step one is the whole trick: one sheet, one owner, one place to fix a price.',
+            section: { h: 'Step one, in detail', kind: 'steps', items: [
+              { t: 'Copy every price into one tab', d: 'One row per product, one column per tier. Nothing else lives there.', owner: 'you', effort: 'two hours' },
+              { t: 'Delete the other copies', d: 'Every duplicate becomes a read from this tab. A copy is a bug waiting to happen.', owner: 'you', effort: 'two hours' },
+              { t: 'Name an owner', d: 'One person can change a price. Everyone else can read it.', owner: 'you', effort: '\u2014' }
+            ] }
+          }
+        }
       }
     },
 
@@ -277,7 +313,35 @@
             body: 'Nobody learns a new tool. They keep emailing. The difference is that the message now carries a label, and the label decides where it lands.' }
         ],
         gaps: ['Whether invoices must stay in the inbox for audit'],
-        followups: ['Build the intake rules', 'What does triage look like?', 'What if we skip Notion?']
+        followups: ['Build the intake rules', 'What does triage look like?', 'What if we skip Notion?'],
+        more: {
+          'Build the intake rules': {
+            say: 'Four rules, written as filters. They are the whole system, and you can change any of them in a minute.',
+            section: { h: 'The rules', kind: 'table',
+              head: ['When', 'Then', 'Lane'],
+              rows: [
+                ['Subject contains \u201cquote\u201d', 'label Quote, add to Requests', 'Client request'],
+                ['Sender is on the supplier list', 'label Invoice, move to Finance', 'Invoice'],
+                ['Message carries an approval link', 'label Approval, add to Approvals', 'Approval'],
+                ['Anything else', 'leave it alone', 'Support']
+              ] }
+          },
+          'What does triage look like?': {
+            say: 'Nine minutes a day. Read the new rows, fix the labels, close what is done. That is the entire routine.',
+            section: { h: 'The morning triage', kind: 'steps', items: [
+              { t: 'Read what arrived overnight', d: 'Only the intake view, not the inbox. Everything is already labelled.', owner: 'whoever is on triage', effort: 'five minutes' },
+              { t: 'Fix the two rules that were wrong', d: 'A misfiled message is a rule change, not a one-off fix.', owner: 'whoever is on triage', effort: 'two minutes' },
+              { t: 'Close what is finished', d: 'Status moves to done. The owner sees it without a second email.', owner: 'whoever is on triage', effort: 'two minutes' }
+            ] }
+          },
+          'What if we skip Notion?': {
+            say: 'Then the intake lands in a Sheet. Fewer views, same labels, and one less tool to pay for.',
+            section: { h: 'If we skip Notion', kind: 'steps', items: [
+              { t: 'One tab, six columns', d: 'Received, from, lane, owner, status, age. Nothing else.', owner: 'you', effort: 'an hour' },
+              { t: 'The same four filters', d: 'Gmail labels write the row. The Sheet never needs a formula.', owner: 'me', effort: 'two days' }
+            ] }
+          }
+        }
       }
     },
 
@@ -333,7 +397,42 @@
             body: 'Build the weekly report in the sheet first. It answers the four questions, and it costs a morning. If you outgrow 50k rows, that is a good problem and the migration is a week, not a rewrite.' }
         ],
         gaps: ['Seat count on the hosted option', 'Whether finance will accept a nightly refresh'],
-        followups: ['Write the queries', 'What would change your mind?', 'Show me the cost model']
+        followups: ['Write the queries', 'What would change your mind?', 'Show me the cost model'],
+        more: {
+          'Write the queries': {
+            say: 'Four questions, four queries, one tab each. None of them needs a tool.',
+            section: { h: 'The four questions', kind: 'table',
+              head: ['Question', 'Reads', 'Refreshes'],
+              rows: [
+                ['What came in this week?', 'the intake tab, by date', 'on open'],
+                ['What is still open?', 'status \u2260 done', 'on open'],
+                ['Where is it slowest?', 'age, grouped by lane', 'daily'],
+                ['What changed since Monday?', 'this week against last', 'Mondays 6am']
+              ] }
+          },
+          'What would change your mind?': {
+            say: 'Three things would move me off the sheet. None of them is true at forty rows a week.',
+            section: { h: 'When I would change my answer', kind: 'table',
+              head: ['Signal', 'Threshold', 'Then'],
+              rows: [
+                ['Rows', 'over 50,000', 'move to a database'],
+                ['People editing', 'more than five', 'move to a tool with permissions'],
+                ['Freshness needed', 'hourly', 'add a sync job']
+              ] }
+          },
+          'Show me the cost model': {
+            say: 'A morning to build, nothing to run, and one person who knows the formulas. That is the honest total.',
+            meta: ['one morning', 'no licence', 'one owner'],
+            section: { h: 'What it costs', kind: 'table',
+              head: ['Item', 'Time', 'Money'],
+              rows: [
+                ['Write the four queries', 'one morning', '\u2014'],
+                ['Wire the Monday refresh', 'an hour', '\u2014'],
+                ['Licence', '\u2014', '\u00a30'],
+                ['The hidden cost', 'one owner who knows it', '\u2014']
+              ] }
+          }
+        }
       }
     },
 
@@ -382,7 +481,40 @@
             body: 'None of these add a tool. They remove the two things that actually cost time: finding out what was asked, and finding out who is holding it.' }
         ],
         gaps: ['Which handoff costs the most — tell me and I will reorder this'],
-        followups: ['Reorder it for me', 'What does the queue look like?', 'Who should own it?']
+        followups: ['Reorder it for me', 'What does the queue look like?', 'Who should own it?'],
+        more: {
+          'Reorder it for me': {
+            say: 'Record first, then the queue, then the default. You cannot show an age you never recorded.',
+            replace: { h: 'What changes', kind: 'steps', items: [
+              { t: 'The record', d: 'The facts people keep asking for, written once, where the queue can read them.', owner: 'you', effort: 'one day' },
+              { t: 'The queue', d: 'One list, one owner, one age per item. It only works if the record exists.', owner: 'you', effort: 'half a day' },
+              { t: 'The default', d: 'Silence moves the item on a stated assumption after two days.', owner: 'you', effort: 'a morning' }
+            ] }
+          },
+          'What does the queue look like?': {
+            say: 'Six columns. If a column does not change a decision, it does not belong.',
+            section: { h: 'The queue', kind: 'table',
+              head: ['Column', 'Holds', 'Filled by'],
+              rows: [
+                ['Item', 'one line, in the asker\u2019s words', 'whoever receives it'],
+                ['Owner', 'one name, never a team', 'the receiver'],
+                ['Age', 'days since it arrived', 'the tool'],
+                ['Waiting on', 'a person, a fact, or a decision', 'the owner'],
+                ['Next step', 'the one action that unblocks it', 'the owner'],
+                ['Default', 'what happens if nobody answers', 'the owner']
+              ] }
+          },
+          'Who should own it?': {
+            say: 'One person, fifteen minutes a day. A rota is fine, a committee is not.',
+            section: { h: 'Who owns what', kind: 'table',
+              head: ['Role', 'Owns', 'Time'],
+              rows: [
+                ['Triage owner', 'the queue and its ages', '15 min a day'],
+                ['Record owner', 'the shared facts', 'an hour a week'],
+                ['Default setter', 'the stated assumptions', 'a review a quarter']
+              ] }
+          }
+        }
       }
     }
   ];
@@ -393,6 +525,101 @@
       if (MISSIONS[i].match.test(text)) return MISSIONS[i];
     }
     return MISSIONS[MISSIONS.length - 1];
+  }
+
+  /* a follow-up continues the artefact you are looking at instead of
+     starting a new mission — the chips promise exactly that */
+  var last = null;
+  var STORE = 'marvin.mind.v1';
+
+  /* the transcript and the artefact survive a reload; so must the
+     follow-ups that belong to them, or a restored chip starts a
+     different mission */
+  function saveLast() {
+    try {
+      if (!last) sessionStorage.removeItem(STORE);
+      else sessionStorage.setItem(STORE, JSON.stringify({ id: last.mission.id, used: last.used }));
+    } catch (e) {}
+  }
+
+  function restoreLast() {
+    try {
+      var raw = sessionStorage.getItem(STORE);
+      if (!raw) return;
+      var saved = JSON.parse(raw);
+      var m = null;
+      for (var i = 0; i < MISSIONS.length; i++) if (MISSIONS[i].id === saved.id) m = MISSIONS[i];
+      if (!m) return;
+      var art = api.artefactGet ? api.artefactGet() : null;
+      if (!art) return;
+      last = { mission: m, artefact: art, more: art.more || m.artefact.more || {}, used: saved.used || {}, focus: null };
+    } catch (e) {}
+  }
+
+  function norm(s) {
+    return String(s || '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ')
+      .replace(/\s+/g, ' ').trim();
+  }
+
+  function followupFor(text) {
+    if (!last || !last.more) return null;
+    var want = norm(text);
+    for (var k in last.more) if (norm(k) === want) return { key: k, spec: last.more[k] };
+    return null;
+  }
+
+  function followupLabels() {
+    if (!last || !last.more) return [];
+    return Object.keys(last.more).filter(function (k) { return !last.used[k]; });
+  }
+
+  function follow(fu, id) {
+    var spec = fu.spec;
+    api.status('revising the plan', 'work');
+    api.portrait('think');
+    api.channel(2);
+    if (api.trace.revise) api.trace.revise(fu.key);
+    return wait(420).then(function () {
+      if (!alive(id)) return;
+      api.status('rewriting that part', 'work');
+      return say(spec.say);
+    }).then(function () {
+      if (!alive(id)) return;
+      return speak(spec.say);
+    }).then(function () {
+      if (!alive(id)) return;
+      var art = last.artefact;
+      if (spec.verdict) art.verdict = spec.verdict;
+      if (spec.meta) art.meta = spec.meta;
+      if (spec.replace) {
+        var focus = -1;
+        [].concat(spec.replace).forEach(function (rep) {
+          var at = -1;
+          art.sections.forEach(function (sec, i) { if (sec.h === rep.h) at = i; });
+          if (at === -1) { art.sections.push(rep); at = art.sections.length - 1; }
+          else art.sections[at] = rep;
+          if (focus === -1) focus = at;
+        });
+        last.focus = focus;
+      } else if (spec.section) {
+        art.sections.push(spec.section);
+        last.focus = art.sections.length - 1;
+      }
+      last.used[fu.key] = true;
+      saveLast();
+      api.artefact(art, last.focus);
+      api.channel(3);
+      api.status('done', 'done');
+      api.portrait('happy', 1800);
+      api.chips(followupLabels());
+    }).then(function () {
+      if (!alive(id)) return;
+      api.status('waiting on you', 'ready');
+      api.portrait('');
+    }).catch(function (err) {
+      if (window.console && console.warn) console.warn('[marvin] follow-up error', err);
+      if (alive(id)) api.status('something broke on my side', '');
+    });
   }
 
   /* ----------------------------------------------------------
@@ -531,7 +758,19 @@
   function deliverPhase(m, id) {
     if (!alive(id)) return;
     api.status('done', 'done');
-    api.artefact(m.artefact);
+    /* a copy, so a follow-up can grow this artefact without mutating
+       the mission definition for the next visitor */
+    var art = JSON.parse(JSON.stringify(m.artefact));
+    last = {
+      mission: m,
+      artefact: art,
+      more: art.more || {},
+      used: {},
+      focus: null
+    };
+    delete art.more;
+    saveLast();
+    api.artefact(last.artefact);
     api.channel(3);
     api.portrait('happy', 2200);
     return wait(420).then(function () {
@@ -541,7 +780,7 @@
       return speak(m.artefact.verdict);
     }).then(function () {
       if (!alive(id)) return;
-      api.chips(m.artefact.followups || ['Tell me what to change', 'Start again']);
+      api.chips(followupLabels());
       api.portrait('');
     });
   }
@@ -562,8 +801,16 @@
      public
      ---------------------------------------------------------- */
   function handle(text) {
+    var fu = followupFor(text);
+    if (fu) {
+      var fid = ++runId;
+      Voice.cancel();
+      return Promise.resolve().then(function () { return follow(fu, fid); });
+    }
     var id = ++runId;
     Voice.cancel();
+    last = null;
+    saveLast();
     api.trace.reset();
     api.artefactClear();
     api.channel(1);
@@ -585,7 +832,7 @@
   }
 
   window.__marvinMind = {
-    attach: function (a) { api = a; },
+    attach: function (a) { api = a; restoreLast(); },
     handle: handle,
     cancel: cancel,
     voice: Voice,

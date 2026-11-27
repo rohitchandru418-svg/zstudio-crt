@@ -151,7 +151,8 @@
 
   function setChips(list) {
     chips.textContent = '';
-    (list || CHIPS).forEach(function (label) {
+    var items = list || CHIPS;
+    items.forEach(function (label) {
       var b = el('button', 'mv-chip');
       b.type = 'button';
       b.textContent = label;
@@ -159,8 +160,10 @@
       chips.appendChild(b);
     });
     chips.classList.remove('is-gone');
+    session.chips = items.slice();
+    saveSession();
   }
-  setChips();
+  setChips(session.chips && session.chips.length ? session.chips : null);
 
   var inputRow = el('div', 'mv-inputrow');
   var fld = el('div', 'mv-field');
@@ -417,6 +420,11 @@
       if (session.messages.length) {
         greet.style.display = 'none';
         renderHistory();
+        if (session.art) {
+          showArtefact(session.art);
+          chBtns[3].disabled = false;
+          setStatus('waiting on you', 'ready');
+        }
       } else if (session.greeted) {
         greetVis.textContent = GREETING;
         greetSr.textContent = GREETING;
@@ -443,6 +451,8 @@
           session.messages = [];
           session.greeted = true;
           saveSession();
+          artefactClear();
+          setChips();
           log.textContent = '';
           greet.style.display = 'none';
           var demo = new URLSearchParams(location.search).get('say') ||
@@ -770,6 +780,16 @@
       p.appendChild(b);
       p.appendChild(document.createTextNode(' ' + text));
       traceEl.appendChild(p);
+    },
+    revise: function (text) {
+      /* after a reload the trace has not been built yet */
+      if (!traceEl) traceReset();
+      var p = el('p', 'tr__revise');
+      var b = el('b', null, 'You asked');
+      p.appendChild(b);
+      p.appendChild(document.createTextNode(' \u201c' + text + '\u201d \u2014 reopening the plan'));
+      traceEl.appendChild(p);
+      workScroll.scrollTop = workScroll.scrollHeight;
     }
   };
 
@@ -800,7 +820,7 @@
     return out.join('\n');
   }
 
-  function showArtefact(a) {
+  function showArtefact(a, focus) {
     resultScroll.textContent = '';
     var art = el('article', 'ar');
 
@@ -907,10 +927,26 @@
     art.appendChild(act);
 
     resultScroll.appendChild(art);
+    session.art = a;
+    saveSession();
+
+    /* a follow-up appends a section; land on it instead of the top */
+    if (typeof focus === 'number') {
+      var secs = art.querySelectorAll('.ar__sec');
+      if (secs[focus]) {
+        resultScroll.scrollTop = secs[focus].getBoundingClientRect().top -
+          resultScroll.getBoundingClientRect().top + resultScroll.scrollTop - 16;
+        return;
+      }
+    }
     resultScroll.scrollTop = 0;
   }
 
-  function artefactClear() { resultScroll.textContent = ''; }
+  function artefactClear() {
+    resultScroll.textContent = '';
+    session.art = null;
+    saveSession();
+  }
 
   /* ---- the decision card ---- */
   function clarify(spec) {
@@ -1073,6 +1109,7 @@
     trace: trace,
     clarify: clarify,
     artefact: showArtefact,
+    artefactGet: function () { return session.art; },
     artefactClear: artefactClear,
     scroll: function () { talkScroll.scrollTop = talkScroll.scrollHeight; }
   };
@@ -1086,12 +1123,12 @@
       if (!document.querySelector('link[data-marvin-mind]')) {
         var l = document.createElement('link');
         l.rel = 'stylesheet';
-        l.href = 'marvin-mind.css?v=6';
+        l.href = 'marvin-mind.css?v=8';
         l.setAttribute('data-marvin-mind', '');
         document.head.appendChild(l);
       }
       var s = document.createElement('script');
-      s.src = 'marvin-mind.js?v=6';
+      s.src = 'marvin-mind.js?v=13';
       s.async = true;
       s.onload = function () {
         if (window.__marvinMind) resolve(window.__marvinMind);
