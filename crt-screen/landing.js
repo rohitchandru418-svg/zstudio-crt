@@ -903,6 +903,7 @@
     c.settleLift = { from: c.lift, to: 0, t: 0, dur: 0.4 };
     c.liftV = 0;
     wellHint.found = true;
+    slotEl.classList.remove('is-armed');
     slotEl.classList.add('is-filled');
     Sound.seat();
   }
@@ -1012,7 +1013,10 @@
     }
 
     if (down) {
-      if (!moved && Math.abs(nx - downX) + Math.abs(ny - downY) > 5) moved = true;
+      if (!moved && Math.abs(nx - downX) + Math.abs(ny - downY) > 5) {
+        moved = true;
+        if (active && !active.about) slotEl.classList.add('is-armed');
+      }
       kick();
       return;
     }
@@ -1072,6 +1076,7 @@
     down = false;
     var c = active;
     active = null;
+    slotEl.classList.remove('is-armed');
     canvas.style.cursor = 'default';
     if (canvas.hasPointerCapture && e && canvas.hasPointerCapture(e.pointerId)) {
       canvas.releasePointerCapture(e.pointerId);
