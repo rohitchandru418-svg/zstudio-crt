@@ -904,7 +904,7 @@
     c.liftV = 0;
     wellHint.found = true;
     slotEl.classList.add('is-filled');
-    Sound.place();
+    Sound.seat();
   }
 
   /* ------------------------------------------------------------
@@ -946,6 +946,7 @@
       };
       o.exitAt = performance.now() + i * 70;
     });
+    if (others.length) Sound.shuffle();
 
     if (reduceMotion.matches) {
       inspect.phase = 'open';
@@ -992,6 +993,7 @@
   }
 
   var downX = 0, downY = 0, moved = false, down = false;
+  var hoverCard = null, lastTick = 0;
 
   function onMove(e) {
     var now = performance.now();
@@ -1016,6 +1018,13 @@
     }
 
     var c = pick(nx, ny);
+    if (c !== hoverCard) {
+      hoverCard = c;
+      if (c && !down && !inspect.active && !storyOpen && e.pointerType !== 'touch' && now - lastTick > 45) {
+        lastTick = now;
+        Sound.tick();
+      }
+    }
     cards.forEach(function (card) {
       card.hover = card === c;
       card.tilt = card === c ? clamp((nx - card.x) * 0.0006, -0.075, 0.075) : 0;
@@ -1053,7 +1062,7 @@
     c.vrot += (Math.random() - 0.5) * 1.3;
     canvas.style.cursor = 'grabbing';
     try { if (canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId); } catch (err) {}
-    Sound.select();
+    Sound.pickup();
     kick();
   }
 
@@ -1100,11 +1109,12 @@
     c.settleLift = { from: c.lift, to: 0, t: 0, dur: 0.4 };
     c.liftV = 0;
     c.free = true;
-    Sound.place();
+    Sound.drop();
     kick();
   }
 
   function onLeave() {
+    hoverCard = null;
     resetWind();
     pointer.vx = 0; pointer.vy = 0;
     if (!down) {                /* a held card must not be thrown off-screen */
@@ -1971,9 +1981,9 @@
       built = true;
     }
 
-    function blip(freq, dur, type, gain) {
+    function blip(freq, dur, type, gain, at) {
       if (!built || !enabled) return;
-      var t = ac.currentTime;
+      var t = at || ac.currentTime;
       var o = ac.createOscillator();
       o.type = type || 'sine';
       o.frequency.value = freq;
@@ -2005,6 +2015,144 @@
       g.connect(master);
       src.start(t);
       src.stop(t + 0.14);
+    }
+
+    /* --- card foley: every gesture gets its own paper/CRT voice --- */
+    function tick() {
+      if (!built || !enabled) return;
+      var t = ac.currentTime;
+      var src = ac.createBufferSource();
+      src.buffer = noise(0.03);
+      var hp = ac.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 2600;
+      var g = ac.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.016, t + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.035);
+      src.connect(hp); hp.connect(g); g.connect(master);
+      src.start(t); src.stop(t + 0.05);
+    }
+
+    function pickup() {
+      if (!built || !enabled) return;
+      var t = ac.currentTime;
+      var src = ac.createBufferSource();
+      src.buffer = noise(0.16);
+      var bp = ac.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 1.4;
+      bp.frequency.setValueAtTime(900, t);
+      bp.frequency.exponentialRampToValueAtTime(2600, t + 0.12);
+      var g = ac.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.07, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
+      src.connect(bp); bp.connect(g); g.connect(master);
+      src.start(t); src.stop(t + 0.18);
+      blip(330, 0.09, 'sine', 0.028);
+    }
+
+    function drop() {
+      if (!built || !enabled) return;
+      var t = ac.currentTime;
+      var src = ac.createBufferSource();
+      src.buffer = noise(0.14);
+      var lp = ac.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(2200, t);
+      lp.frequency.exponentialRampToValueAtTime(500, t + 0.1);
+      var g = ac.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.08, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+      src.connect(lp); lp.connect(g); g.connect(master);
+      src.start(t); src.stop(t + 0.15);
+      var o = ac.createOscillator();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(150, t);
+      o.frequency.exponentialRampToValueAtTime(72, t + 0.1);
+      var og = ac.createGain();
+      og.gain.setValueAtTime(0.0001, t);
+      og.gain.exponentialRampToValueAtTime(0.045, t + 0.01);
+      og.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+      o.connect(og); og.connect(master);
+      o.start(t); o.stop(t + 0.15);
+    }
+
+    function seat() {
+      if (!built || !enabled) return;
+      var t = ac.currentTime;
+      var src = ac.createBufferSource();
+      src.buffer = noise(0.1);
+      var bp = ac.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 1800;
+      bp.Q.value = 1.6;
+      var g = ac.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.09, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+      src.connect(bp); bp.connect(g); g.connect(master);
+      src.start(t); src.stop(t + 0.12);
+      blip(523, 0.07, 'triangle', 0.045);
+      blip(784, 0.12, 'sine', 0.032, t + 0.055);
+    }
+
+    function story() {
+      if (!built || !enabled) return;
+      var t = ac.currentTime;
+      var src = ac.createBufferSource();
+      src.buffer = noise(0.5);
+      var bp = ac.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 0.9;
+      bp.frequency.setValueAtTime(500, t);
+      bp.frequency.exponentialRampToValueAtTime(2400, t + 0.35);
+      var g = ac.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.045, t + 0.06);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+      src.connect(bp); bp.connect(g); g.connect(master);
+      src.start(t); src.stop(t + 0.55);
+      blip(262, 0.25, 'sine', 0.035);
+      blip(392, 0.3, 'sine', 0.024, t + 0.08);
+    }
+
+    function close() {
+      if (!built || !enabled) return;
+      var t = ac.currentTime;
+      var src = ac.createBufferSource();
+      src.buffer = noise(0.4);
+      var bp = ac.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 0.8;
+      bp.frequency.setValueAtTime(2000, t);
+      bp.frequency.exponentialRampToValueAtTime(600, t + 0.3);
+      var g = ac.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.035, t + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+      src.connect(bp); bp.connect(g); g.connect(master);
+      src.start(t); src.stop(t + 0.45);
+      blip(196, 0.22, 'sine', 0.026);
+    }
+
+    function shuffle() {
+      if (!built || !enabled) return;
+      var t = ac.currentTime;
+      var src = ac.createBufferSource();
+      src.buffer = noise(0.6);
+      var bp = ac.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 1500;
+      bp.Q.value = 0.7;
+      var g = ac.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.03, t + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+      src.connect(bp); bp.connect(g); g.connect(master);
+      src.start(t); src.stop(t + 0.6);
     }
 
     function setPressed(on) {
@@ -2054,8 +2202,14 @@
       enable: enable,
       disable: disable,
       select: function () { paper(0.1); },
-      place: function () { paper(0.16); blip(392, 0.16, 'sine', 0.035); },
       hover: function () { paper(0.04); },
+      tick: tick,
+      pickup: pickup,
+      drop: drop,
+      seat: seat,
+      story: story,
+      close: close,
+      shuffle: shuffle,
       scan: function () {
         if (!built || !enabled) return;
         var t = ac.currentTime;
@@ -2146,7 +2300,7 @@
       void root.offsetWidth;
       root.classList.add('is-open');
       if (closeBtn) closeBtn.focus();
-      Sound.select();
+      Sound.story();
     }
 
     function close() {
@@ -2154,6 +2308,7 @@
       storyOpen = false;
       root.classList.remove('is-open');
       root.setAttribute('aria-hidden', 'true');
+      Sound.close();
       if (lastFocus && lastFocus.focus) lastFocus.focus();
       if (inspect.active) endInspect();
     }
