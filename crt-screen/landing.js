@@ -16,6 +16,8 @@
   var menuBtn  = document.getElementById('menuOpen');
 
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  /* lite mode: the prints stop moving and the canvas only redraws on demand */
+  var lite = document.documentElement.classList.contains('is-lite');
 
   var WORKS = [
     {
@@ -295,8 +297,9 @@
         bend: 0, bendV: 0, yaw: 0, pitch: 0,
         yaw0: ((i % 3) - 1) * 0.035 + (i % 2 ? 0.012 : -0.012),
         pitch0: ((i % 4) - 1.5) * 0.018,
-        hover: false, drag: false, home: true,
+        hover: false, drag: false, home: true, flying: false, free: false,
         grabX: 0, grabY: 0,
+        rx: 0, ry: 0, restRot: 0,
         reveal: 1, placed: false, openOnArrive: false
       };
     });
@@ -403,10 +406,12 @@
 
       if (c.home) {
         c.tx = c.hx; c.ty = c.hy; c.trot = c.hrot;
+        c.rx = c.hx; c.ry = c.hy;
+        c.restRot = c.hrot;
       }
 
       if (!c.placed) {
-        c.x = c.tx; c.y = c.ty; c.rot = c.trot;
+        c.x = c.rx; c.y = c.ry; c.rot = c.trot;
         c.placed = true;
       }
     });
@@ -432,7 +437,7 @@
   }
 
   function resizeCanvas() {
-    DPR = Math.min(DPR_CAP, window.devicePixelRatio || 1);
+    DPR = Math.min(lite ? 1 : DPR_CAP, window.devicePixelRatio || 1);
     canvas.width = Math.round(W * DPR);
     canvas.height = Math.round(H * DPR);
     canvas.style.width = W + 'px';
@@ -474,16 +479,6 @@
     return null;
   }
 
-  /* the conveyor: an endless strip of prints that cruises on its own.
-     On the seam a card is fully off-screen both before and after, so the
-     jump is never visible. */
-  function stripX(c, off) {
-    var period = W + c.w;
-    var s = ((c.hx + off) % period + period) % period;
-    if (s > W + c.w / 2) s -= period;
-    return s;
-  }
-
   function edgeFade(c) {
     var inside = Math.min(c.x + c.w / 2, W + c.w / 2 - c.x);
     return clamp(inside / (W * 0.12), 0, 1);
@@ -508,17 +503,14 @@
     return clearFade(c, { left: slotRect.left - 10, right: slotRect.right + 10, top: slotRect.top - 10, bottom: slotRect.bottom + 10 }, 3.4);
   }
 
-  function overSlot(c) {
-    if (!slotRect) return false;
-    var ox = Math.min(c.x + c.w / 2, slotRect.right) - Math.max(c.x - c.w / 2, slotRect.left);
-    var oy = Math.min(c.y + c.h / 2, slotRect.bottom) - Math.max(c.y - c.h / 2, slotRect.top);
-    if (ox <= 0 || oy <= 0) return false;
-    return (ox * oy) / (c.w * c.h) > 0.22;
-  }
-
   function sendHome(c) {
     c.home = true;
-    c.tx = stripX(c, cruise); c.ty = c.hy; c.trot = c.hrot;
+    c.flying = false;
+    c.free = false;
+    c.rx = c.hx; c.ry = c.hy;
+    c.restRot = c.hrot;
+    c.tx = c.hx; c.ty = c.hy; c.trot = c.hrot;
+    c.liftV = 0;
     c.reveal = 1;
     if (!cards.some(function (o) { return !o.home; })) slotEl.classList.remove('is-filled');
   }
@@ -526,15 +518,18 @@
   function place(c) {
     if (!slotRect) return;
     cards.forEach(function (o) { if (o !== c && !o.home) sendHome(o); });
-    if (c.home) c.reveal = 0;
+    if (c.home) c.reveal = lite ? 1 : 0;
     c.home = false;
+    c.drag = false;
+    c.free = true;
     c.tx = slotRect.cx; c.ty = slotRect.cy; c.trot = 0;
     c.vx *= 0.3; c.vy *= 0.3; c.vrot = 0;
+    c.flying = true;
     slotEl.classList.add('is-filled');
     Sound.place();
   }
 
-  var downX = 0, downY = 0, moved = false;
+  var downX = 0, downY = 0, moved = false, down = false;
 
   function onMove(e) {
     var now = performance.now();
@@ -547,8 +542,9 @@
     }
     pointer.x = nx; pointer.y = ny; pointer.t = now;
 
-    if (active) {
-      if (Math.abs(nx - downX) + Math.abs(ny - downY) > 6) moved = true;
+    if (down) {
+      if (!moved && Math.abs(nx - downX) + Math.abs(ny - downY) > 5) moved = true;
+      kick();
       return;
     }
 
@@ -560,96 +556,108 @@
       card.lyT = card === c ? clamp((ny - card.y) / (card.h * 1.7), -1, 1) : 0;
     });
     canvas.style.cursor = c ? 'grab' : 'default';
+    kick();
   }
 
   function onDown(e) {
     var c = pick(e.clientX, e.clientY);
     if (!c) return;
+    down = true;
     active = c;
-    downX = e.clientX; downY = e.clientY; moved = false;
+    downX = e.clientX; downY = e.clientY;
+    moved = false;
+    if (!c.home) {
+      /* a print in the plate can be lifted back onto the floor */
+      c.home = true;
+      c.flying = false;
+      c.rx = c.x; c.ry = c.y;
+      c.restRot = c.rot;
+      c.openOnArrive = false;
+      if (!cards.some(function (o) { return !o.home; })) slotEl.classList.remove('is-filled');
+    }
     c.drag = true;
-    lastInput = performance.now();
+    c.free = true;
     c.grabX = c.x - e.clientX;
     c.grabY = c.y - e.clientY;
+    /* the pickup: a small upward pop and a jiggle, as if pinched by a corner */
+    c.liftV += 1.7;
+    c.vrot += (Math.random() - 0.5) * 1.3;
     canvas.style.cursor = 'grabbing';
     try { if (canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId); } catch (err) {}
     Sound.select();
+    kick();
   }
 
   function onUp(e) {
-    if (!active) return;
+    if (!down) return;
+    down = false;
     var c = active;
     active = null;
-    c.drag = false;
     canvas.style.cursor = 'default';
     if (canvas.hasPointerCapture && e && canvas.hasPointerCapture(e.pointerId)) {
       canvas.releasePointerCapture(e.pointerId);
     }
+    if (!c) return;
 
-    lastInput = performance.now();
+    c.drag = false;
 
     if (!moved) {
-      if (c.home) { place(c); c.openOnArrive = true; }
-      else { Story.open(c); }
+      place(c);
+      c.openOnArrive = true;
+      kick();
       return;
     }
 
-    c.vx = clamp(c.vx, -2400, 2400);
-    c.vy = clamp(c.vy, -2400, 2400);
-
-    if (overSlot(c)) {
-      place(c);
-      c.openOnArrive = true;
-    } else {
-      sendHome(c);
-      cruiseFling = clamp(c.vx, -1600, 1600);
+    /* the plate is a target: a card let go over it goes in */
+    if (slotRect) {
+      var ox = Math.min(c.x + c.w / 2, slotRect.right) - Math.max(c.x - c.w / 2, slotRect.left);
+      var oy = Math.min(c.y + c.h / 2, slotRect.bottom) - Math.max(c.y - c.h / 2, slotRect.top);
+      if (ox > 0 && oy > 0 && (ox * oy) / (c.w * c.h) > 0.22) {
+        place(c);
+        c.openOnArrive = true;
+        kick();
+        return;
+      }
     }
+
+    /* let go: it lands where the hand left it, then settles there */
+    c.x = clamp(c.x, safe.left + c.w / 2, safe.right - c.w / 2);
+    c.y = clamp(c.y, safe.top + c.h / 2, safe.bottom - c.h / 2);
+    c.rx = c.x; c.ry = c.y;
+    c.restRot = c.rot;
+    c.vx *= 0.45; c.vy *= 0.45;
+    c.liftV = Math.min(c.liftV, 0);
+    c.free = true;
+    Sound.place();
+    kick();
   }
 
   function onLeave() {
     pointer.vx = 0; pointer.vy = 0;
-    pointer.x = -9999; pointer.y = -9999;
-    pointer.t = 0;              /* no gust when the cursor re-enters */
+    if (!down) {                /* a held card must not be thrown off-screen */
+      pointer.x = -9999; pointer.y = -9999;
+      pointer.t = 0;            /* no gust when the cursor re-enters */
+    }
+    kick();
   }
 
   /* ------------------------------------------------------------
      simulate
      ------------------------------------------------------------ */
-  function collide(c) {
-    if (!heroRect) return;
-    var b = { left: c.x - c.w / 2, right: c.x + c.w / 2, top: c.y - c.h / 2, bottom: c.y + c.h / 2, cx: c.x, cy: c.y };
-    var ox = Math.min(b.right, heroRect.right) - Math.max(b.left, heroRect.left);
-    var oy = Math.min(b.bottom, heroRect.bottom) - Math.max(b.top, heroRect.top);
-    if (ox <= 0 || oy <= 0) return;
-    if (ox < oy) {
-      c.x += (b.cx < (heroRect.left + heroRect.right) / 2 ? -1 : 1) * ox;
-      c.vx *= 0.4;
-    } else {
-      c.y += (b.cy < (heroRect.top + heroRect.bottom) / 2 ? -1 : 1) * oy;
-      c.vy *= 0.4;
-    }
-  }
-
   var windEnergy = 0;
   var windPan = 0;
 
-  /* conveyor state. the constants are the reference carousel's: cruise at 7.5%
-     of the strip height per second, friction 0.95 a frame, auto-advance easing
-     back in 900ms after the last touch. */
-  var cruise = 0;
-  var cruiseAuto = 0;
-  var cruiseFling = 0;
-  var lastInput = -1e9;
-  var storyOpen = false;
+  /* ------------------------------------------------------------
+     paper physics
 
-  function updateCruise(dt, now, calm) {
-    var speed = H * 0.04;
-    var cruising = now - lastInput > 900 && !storyOpen && !calm && !active;
-    cruiseAuto += ((cruising ? speed : 0) - cruiseAuto) * (1 - Math.exp(-2.14 * dt));
-    cruiseFling *= Math.exp(-3.08 * dt);
-    if (Math.abs(cruiseFling) < 1) cruiseFling = 0;
-    cruise += (cruiseAuto + cruiseFling) * dt;
-  }
+     Each print is a sheet lying on the floor of the tube. Moving the
+     cursor moves air over it, a grab lifts it off the surface, and a drop
+     lets gravity take it back down with a bounce. Nothing scrolls on its
+     own: a sheet stays exactly where it was put.
+     ------------------------------------------------------------ */
+  var GRAVITY = 7.4;
+  var BOUNCE = 0.34;
+  var storyOpen = false;
 
   var frameNow = 0;
   var calmNow = false;
@@ -661,71 +669,69 @@
     pointer.vy *= decay;
 
     windEnergy = 0;
-    var calm = reduceMotion.matches;
+    var calm = reduceMotion.matches || lite;
     calmNow = calm;
-    updateCruise(dt, now, calm);
-
 
     cards.forEach(function (c) {
-      var stiff = c.home ? K : SLOT_K;
-      var damp  = c.home ? D : SLOT_D;
-
-      if (c.drag) {
-        var tx = pointer.x + c.grabX;
-        var ty = pointer.y + c.grabY;
-        var f = 1 - Math.exp(-30 * dt);
-        var nx = c.x + (tx - c.x) * f;
-        var ny = c.y + (ty - c.y) * f;
-        c.vx = (nx - c.x) / dt;
-        c.vy = (ny - c.y) / dt;
-        c.x = nx;
-        c.y = ny;
-      } else {
-        if (c.home) {
-          var onStrip = stripX(c, cruise);
-          /* crossing the seam: shift the card with the target so the spring
-             never drags it back across the screen */
-          if (Math.abs(onStrip - c.tx) > (W + c.w) * 0.5) c.x += onStrip - c.tx;
-          c.tx = onStrip;
-        }
-        c.vx += (c.tx - c.x) * stiff * dt;
-        c.vy += (c.ty - c.y) * stiff * dt;
-        c.vx *= Math.exp(-damp * dt);
-        c.vy *= Math.exp(-damp * dt);
-
-        if (c.home) {
-          var dx = c.x - pointer.x;
-          var dy = c.y - pointer.y;
-          var dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          if (dist < WIND_R) {
-            var g = (1 - dist / WIND_R) * (calm ? 0.34 : 1);
-            var ff = g * Math.sqrt(g);
-            c.vx += (pointer.vx * AIR * ff - c.vx) * AIR_PULL * dt;
-            c.vy += (pointer.vy * AIR * ff - c.vy) * AIR_PULL * dt;
-            c.vrot += clamp((dx * pointer.vy - dy * pointer.vx) * ff * TORQUE / (c.w * c.w), -16, 16) * dt;
-            windEnergy = Math.max(windEnergy, Math.sqrt(pointer.vx * pointer.vx + pointer.vy * pointer.vy) * ff);
-            windPan = clamp(dx / 700, -1, 1);
-          }
-        }
-
-        c.vx = clamp(c.vx, -4200, 4200);
-        c.vy = clamp(c.vy, -4200, 4200);
+      if (!c.home) {
+        /* in the slot, or flying to it */
+        c.vx += (c.tx - c.x) * SLOT_K * dt;
+        c.vy += (c.ty - c.y) * SLOT_K * dt;
+        c.vx *= Math.exp(-SLOT_D * dt);
+        c.vy *= Math.exp(-SLOT_D * dt);
         c.x += c.vx * dt;
         c.y += c.vy * dt;
-
-      }
-
-      if (c.reveal < 1) c.reveal = Math.min(1, c.reveal + dt / 0.9);
-
-      /* arrive, don't creep: an asymptotic spring never quite stops, and a
-         sub-pixel drift that lasts a second is exactly what reads as weight */
-      if (!c.drag) {
-        var ddx = c.tx - c.x, ddy = c.ty - c.y;
-        if (Math.abs(ddx) < 1.2 && Math.abs(ddy) < 1.2 &&
+        if (Math.abs(c.tx - c.x) < 1.2 && Math.abs(c.ty - c.y) < 1.2 &&
             Math.abs(c.vx) < 14 && Math.abs(c.vy) < 14) {
           c.x = c.tx; c.y = c.ty; c.vx = 0; c.vy = 0;
         }
+      } else if (c.drag) {
+        /* held by the cursor: it follows with a little weight, so the hand
+           leads the paper rather than the paper snapping to the hand */
+        var tx = pointer.x + c.grabX;
+        var ty = pointer.y + c.grabY;
+        var f = 1 - Math.exp(-17 * dt);
+        var nx = c.x + (tx - c.x) * f;
+        var ny = c.y + (ty - c.y) * f;
+        nx = clamp(nx, safe.left + c.w / 2, safe.right - c.w / 2);
+        ny = clamp(ny, safe.top + c.h / 2, safe.bottom - c.h / 2);
+        c.vx = (nx - c.x) / Math.max(dt, 0.001);
+        c.vy = (ny - c.y) / Math.max(dt, 0.001);
+        c.x = nx;
+        c.y = ny;
+      } else {
+        /* on the floor: the cursor's air pushes it, the floor pulls it home */
+        var dx = c.x - pointer.x;
+        var dy = c.y - pointer.y;
+        var dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        if (!lite && dist < WIND_R) {
+          var g = (1 - dist / WIND_R) * (calm ? 0.34 : 1);
+          var ff = g * Math.sqrt(g);
+          c.vx += (pointer.vx * AIR * ff - c.vx) * AIR_PULL * dt;
+          c.vy += (pointer.vy * AIR * ff - c.vy) * AIR_PULL * dt;
+          c.vrot += clamp((dx * pointer.vy - dy * pointer.vx) * ff * TORQUE / (c.w * c.w), -16, 16) * dt;
+          windEnergy = Math.max(windEnergy, Math.sqrt(pointer.vx * pointer.vx + pointer.vy * pointer.vy) * ff);
+          windPan = clamp(dx / 700, -1, 1);
+        }
+
+        c.vx += (c.rx - c.x) * K * dt;
+        c.vy += (c.ry - c.y) * K * dt;
+        c.vx *= Math.exp(-D * dt);
+        c.vy *= Math.exp(-D * dt);
+        c.x += c.vx * dt;
+        c.y += c.vy * dt;
+
+        /* never let a sheet slide under the bezel */
+        c.x = clamp(c.x, -c.w * 0.35, W + c.w * 0.35);
+        c.y = clamp(c.y, safe.top + c.h * 0.5, safe.bottom - c.h * 0.5);
+
+        if (Math.abs(c.rx - c.x) < 1.2 && Math.abs(c.ry - c.y) < 1.2 &&
+            Math.abs(c.vx) < 12 && Math.abs(c.vy) < 12) {
+          c.x = c.rx; c.y = c.ry; c.vx = 0; c.vy = 0;
+        }
       }
+
+      if (c.reveal < 1) c.reveal = Math.min(1, c.reveal + dt / 0.9);
 
       if (c.openOnArrive && !c.home && c.reveal >= 1 &&
           Math.abs(c.x - c.tx) < 2.5 && Math.abs(c.y - c.ty) < 2.5) {
@@ -733,7 +739,10 @@
         Story.open(c);
       }
 
-      var rotTarget = c.trot + (c.home ? c.tilt : 0);
+      /* rotation: the hand tips a held sheet, the floor settles a dropped one */
+      var rotTarget = c.drag ? c.restRot + clamp(c.vx * 0.00018, -0.12, 0.12)
+                    : (c.hover && c.home) ? c.restRot + c.tilt
+                    : c.restRot;
       c.vrot += (rotTarget - c.rot) * KR * dt;
       c.vrot *= Math.exp(-DR * dt);
       c.rot += c.vrot * dt;
@@ -741,36 +750,43 @@
         c.rot = rotTarget; c.vrot = 0;
       }
 
-      var liftTarget = c.drag ? 1.15 : c.hover ? 0.45 : 0;
-      c.liftV += (liftTarget - c.lift) * 230 * dt;
-      c.liftV *= Math.exp(-17 * dt);
-      c.lift += c.liftV * dt;
-      if (Math.abs(liftTarget - c.lift) < 0.004 && Math.abs(c.liftV) < 0.06) {
-        c.lift = liftTarget; c.liftV = 0;
+      /* elevation: held up by the hand, pulled down by gravity otherwise */
+      if (c.drag) {
+        c.liftV += (1.15 - c.lift) * 260 * dt;
+        c.liftV *= Math.exp(-18 * dt);
+        c.lift += c.liftV * dt;
+        if (c.lift > 1.4) { c.lift = 1.4; if (c.liftV > 0) c.liftV = 0; }
+      } else {
+        c.liftV -= GRAVITY * dt;
+        c.liftV *= Math.exp(-1.15 * dt);
+        c.lift += c.liftV * dt;
+        if (c.lift <= 0) {
+          c.lift = 0;
+          if (Math.abs(c.liftV) > 0.55) {
+            /* impact: a small bounce and a twist as it comes to rest */
+            c.liftV = -c.liftV * BOUNCE;
+            c.vrot += (Math.random() - 0.5) * 0.8;
+          } else {
+            c.liftV = 0;
+          }
+        }
       }
-
-      /* a still pointer must never mean a still scene: every print drifts
-         on its own phase, and the drift fades out as the card is lifted */
-      var calmK = calm ? 0.34 : 1;
-      var amb = c.drag ? 0 : (1 - clamp(c.lift, 0, 1)) * calmK;
-      c.ax = Math.sin(now * 0.00061 + c.i * 2.13) * 7.0 * amb;
-      c.ay = Math.cos(now * 0.00047 + c.i * 1.41) * 9.0 * amb;
-      c.asway = Math.sin(now * 0.00039 + c.i * 2.77) * 0.022 * amb;
 
       var lean = 1 - Math.exp(-13 * dt);
       c.lx += (c.lxT - c.lx) * lean;
       c.ly += (c.lyT - c.ly) * lean;
 
-      /* the sheet turns to the light: the lean it takes from the pointer,
-         and the shove it takes from being thrown, both feed the pose */
       var yawT = calm ? c.yaw0 : c.yaw0 + c.lx * 0.17 + Math.sin(now * 0.00043 + c.i * 1.9) * 0.02;
       var pitchT = calm ? c.pitch0 : c.pitch0 + c.ly * 0.13 + clamp(c.vx * 0.00016, -0.06, 0.06);
       var poseEase = 1 - Math.exp(-9 * dt);
       c.yaw += (yawT - c.yaw) * poseEase;
       c.pitch += (pitchT - c.pitch) * poseEase;
+
+      /* a sheet at rest is still: the floor does not breathe */
+      c.ax = 0; c.ay = 0; c.asway = 0;
     });
 
-    stepMotes(dt, now);
+    if (!lite) stepMotes(dt, now);
   }
 
   /* ------------------------------------------------------------
@@ -780,6 +796,7 @@
 
   function makeMotes() {
     motes = [];
+    if (lite) return;
     var n = Math.round(clamp((W * H) / 24000, 34, 120));
     for (var i = 0; i < n; i += 1) {
       var z = 0.3 + Math.random() * 0.7;
@@ -973,7 +990,7 @@
   }
 
   function drawCard(c) {
-    var fade = c.home ? Math.min(edgeFade(c), heroFade(c), slotFade(c)) : 1;
+    var fade = c.home && !c.free ? Math.min(edgeFade(c), heroFade(c), slotFade(c)) : 1;
     if (fade < 0.02) return;
     if (fade < 1) ctx.globalAlpha = fade;
 
@@ -1062,15 +1079,27 @@
     if (fade < 1) ctx.globalAlpha = 1;
   }
 
+  var liftedNow = false;
+
   function draw(now) {
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     ctx.clearRect(0, 0, W, H);
 
-    drawMotes(now);
+    var liftAny = false;
+    for (var li = 0; li < cards.length; li += 1) {
+      if (cards[li].drag || cards[li].lift > 0.18) { liftAny = true; break; }
+    }
+    if (liftAny !== liftedNow) {
+      liftedNow = liftAny;
+      canvas.classList.toggle('is-lifting', liftAny);
+    }
+
+    if (!lite) drawMotes(now);
 
     var order = cards.slice().sort(function (a, b) {
       if (a.home !== b.home) return a.home ? -1 : 1;
-      if (a.drag !== b.drag) return a.drag ? 1 : -1;
+      if (a.flying !== b.flying) return a.flying ? 1 : -1;
+      if (Math.abs(a.lift - b.lift) > 0.05) return a.lift - b.lift;
       return a.y - b.y;
     });
 
@@ -1081,6 +1110,8 @@
      loop
      ------------------------------------------------------------ */
   var last = 0;
+  var rafId = 0;
+  var forceDraw = false;
   var perf = { t0: 0, frames: 0, step: 0 };
 
   function adaptQuality(now) {
@@ -1105,15 +1136,66 @@
     resizeCanvas();
   }
 
-  function frame(t) {
+  /* in lite mode the loop parks itself as soon as nothing is moving, so a
+     still page costs one paint instead of sixty a second */
+  function needsFrame() {
+    if (forceDraw) return true;
+    for (var i = 0; i < cards.length; i += 1) {
+      var c = cards[i];
+      if (c.drag) return true;
+      if (c.lift > 0.002 || Math.abs(c.liftV) > 0.01) return true;
+      if (Math.abs(c.x - c.rx) > 0.6 || Math.abs(c.y - c.ry) > 0.6) return true;
+      if (Math.abs(c.vx) > 2 || Math.abs(c.vy) > 2) return true;
+      if (Math.abs(c.vrot) > 0.01) return true;
+      if (Math.abs(c.rot - c.restRot) > 0.002) return true;
+      if (!c.home && (Math.abs(c.x - c.tx) > 0.6 || Math.abs(c.y - c.ty) > 0.6)) return true;
+      if (c.reveal < 1) return true;
+    }
+    return false;
+  }
+
+  function loop(t) {
+    rafId = 0;
     var dt = last ? Math.min(0.033, (t - last) / 1000) : 0.016;
     last = t;
-    adaptQuality(t);
+    if (!lite) adaptQuality(t);
     simulate(dt, t);
     draw(t);
-    Sound.wind(windEnergy, windPan);
-    requestAnimationFrame(frame);
+    forceDraw = false;
+    if (!lite) Sound.wind(windEnergy, windPan);
+    if (!lite || needsFrame()) rafId = requestAnimationFrame(loop);
+    else last = 0;
   }
+
+  function kick() {
+    forceDraw = true;
+    if (!rafId) rafId = requestAnimationFrame(loop);
+  }
+
+  function applyLite(on) {
+    lite = on;
+    last = 0;
+    cards.forEach(function (c) {
+      if (on) {
+        c.reveal = 1;
+        c.drag = false;
+        c.lift = 0;
+        c.liftV = 0;
+        c.vx = 0;
+        c.vy = 0;
+        c.vrot = 0;
+        c.ax = 0; c.ay = 0; c.asway = 0;
+      }
+    });
+    resizeCanvas();
+    /* the wind follows the paper: with the paper still, it has to fall silent */
+    if (on && Sound) Sound.wind(0, 0);
+    kick();
+  }
+
+  document.addEventListener('lite:change', function (e) {
+    applyLite(!!(e.detail && e.detail.on));
+  });
 
   /* ------------------------------------------------------------
      sound — synthesised, no assets
@@ -1417,7 +1499,7 @@
     if (window.__boot) window.__boot.set(70, 'developing prints');
     layout();
     resizeCanvas();
-    requestAnimationFrame(frame);
+    kick();
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
         if (window.__boot) window.__boot.done();
@@ -1441,6 +1523,22 @@
       resizeCanvas();
     });
   }
+  if (/[?&]probe=1/.test(location.search)) {
+    window.__zstudio = {
+      cards: function () {
+        return cards.map(function (c) {
+          return {
+            i: c.i, x: c.x + c.ax, y: c.y + c.ay, rx: c.rx, ry: c.ry,
+            lift: c.lift, rot: c.rot, vx: c.vx, vy: c.vy, vrot: c.vrot,
+            home: c.home, free: c.free, drag: c.drag, reveal: c.reveal
+          };
+        });
+      },
+      place: place,
+      sendHome: sendHome
+    };
+  }
+
   window.addEventListener('resize', onResize, { passive: true });
   window.addEventListener('orientationchange', onResize, { passive: true });
 

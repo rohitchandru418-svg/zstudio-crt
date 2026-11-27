@@ -142,6 +142,16 @@
 
 @keyframes mv-turn { to { --mv-a: 360deg; } }
 
+/* lite mode: the rim stops turning and the blurred copy goes — the blur is
+   a masked 700px gradient, and re-blurring it every frame is the single
+   most expensive thing in the chat */
+html.is-lite .mv-rim { animation: none; }
+html.is-lite .mv-rim::before { display: none; }
+html.is-lite .mv-glow {
+  filter: none;
+  opacity: .62;
+}
+
 /* ------------------------------------------------------------
    the panel
    ------------------------------------------------------------ */

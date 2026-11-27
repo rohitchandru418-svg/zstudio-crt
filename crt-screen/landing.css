@@ -55,6 +55,9 @@ body {
   cursor: default;
 }
 
+/* a sheet lifted toward the viewer passes in front of the headline */
+.cards.is-lifting { z-index: 3; }
+
 /* ------------------------------------------------------------
    HUD
    ------------------------------------------------------------ */
@@ -91,6 +94,13 @@ body {
 }
 
 /* sound toggle */
+.hud__tools {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+}
+
 .sound {
   justify-self: center;
   display: inline-flex;
@@ -125,6 +135,42 @@ body {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-6px); }
 }
+/* lite mode — one switch for the expensive layers */
+.lite {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  margin: -8px 0;
+  border: 0;
+  background: none;
+  color: var(--paper-55);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color .35s ease;
+}
+
+.lite:hover,
+.lite:focus-visible { color: var(--paper); }
+
+.lite__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  background: transparent;
+  transition: background .3s ease, box-shadow .3s ease;
+}
+
+.lite[aria-pressed="true"] { color: var(--paper); }
+.lite[aria-pressed="true"] .lite__dot {
+  background: currentColor;
+  box-shadow: 0 0 10px rgb(255 244 226 / .55);
+}
+
 /* menu button */
 .menu-open {
   justify-self: end;
@@ -418,6 +464,8 @@ body {
   .hero__text { font-size: 14px; margin: 18px auto 24px; }
   .hero__eyebrow { font-size: 9px; letter-spacing: .16em; }
   .sound__wave { width: 36px; }
+  .hud__tools { gap: 12px; }
+  .lite { font-size: 9.5px; letter-spacing: .14em; }
   .slot__label { font-size: 9px; }
 }
 
@@ -468,6 +516,22 @@ body {
 }
 /* slow machines shed the animated sweep before anything else */
 html.is-lean .fx__band { animation: none; opacity: 0; }
+
+/* ============================================================
+   lite mode — the switch in the HUD stops the moving layers
+   ============================================================ */
+/* the scanline grid is one static layer: it stays. The sweep moves. */
+html.is-lite .fx__band { display: none; }
+html.is-lite .crt__glow { display: none; }
+
+/* full-screen backdrop blurs are the expensive part of both overlays */
+html.is-lite .menu__scrim,
+html.is-lite .story__scrim {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+html.is-lite .menu__scrim { background: rgb(6 5 4 / .92); }
+html.is-lite .story__scrim { background: rgb(9 8 7 / .975); }
 
 /* ============================================================
    story — the print opening as a plate

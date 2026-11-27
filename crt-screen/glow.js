@@ -223,6 +223,9 @@
 
   /* --- state --------------------------------------------------------- */
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+  /* lite mode parks the shader: a full-screen post effect is the single
+     most expensive thing on the page, and it is decoration */
+  function lite() { return document.documentElement.classList.contains('is-lite'); }
   var state = { pulse: 1, amount: 0, clock: 0, live: false };
 
   /* the glow belongs to the chat screen, not the home page */
@@ -232,15 +235,21 @@
   /* ?pulse=1 previews one ring on open */
   var devPulse = /[?&]pulse=1/.test(location.search);
   function setChat(on) {
-    state.live = on;
-    canvas.classList.toggle('is-on', on);
-    if (on && devPulse) setTimeout(fire, 700);
+    state.live = on && !lite();
+    canvas.classList.toggle('is-on', state.live);
+    if (state.live && devPulse) setTimeout(fire, 700);
   }
 
   if (crt && window.MutationObserver) {
     new MutationObserver(function () { setChat(chatting()); })
       .observe(crt, { attributes: true, attributeFilter: ['class'] });
     setChat(chatting());
+  }
+
+  /* the switch lives on <html>, so watch it here too */
+  if (window.MutationObserver) {
+    new MutationObserver(function () { setChat(chatting()); })
+      .observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
   }
 
   /* one ring per reply: the panel drops .is-thinking when the answer lands */
@@ -270,6 +279,14 @@
     var dt = Math.min((now - (prev || now)) / 1000, 1 / 20);
     prev = now;
     if (document.hidden) return;
+    if (lite()) {
+      if (state.amount || state.live) {
+        state.amount = 0;
+        state.live = false;
+        canvas.classList.remove('is-on');
+      }
+      return;
+    }
 
     var target = state.live ? AMOUNT : 0;
     state.amount += (target - state.amount) * (1 - Math.pow(0.002, dt));

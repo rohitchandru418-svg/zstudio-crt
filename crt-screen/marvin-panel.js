@@ -254,6 +254,11 @@
   var reduceMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   function pulseFrame(now) {
+    if (liteOn()) {
+      pulseRaf = 0;
+      overlay.style.setProperty('--pulse', '0.75');
+      return;
+    }
     var dt = Math.min(0.05, (now - pulseLast) / 1000);
     pulseLast = now;
     pulseRatio = Math.min(1, pulseRatio + dt * 0.5);
@@ -264,10 +269,13 @@
     pulseRaf = requestAnimationFrame(pulseFrame);
   }
 
+  function liteOn() { return document.documentElement.classList.contains('is-lite'); }
+
   function pulseStart() {
     pulseCancel();
     pulseT0 = pulseLast = performance.now();
-    if (reduceMQ.matches) {
+    /* lite mode: a still ring instead of a per-frame filter on a 700px blur */
+    if (reduceMQ.matches || liteOn()) {
       overlay.style.setProperty('--pulse', '0.75');
       return;
     }
@@ -277,6 +285,10 @@
   function pulseCancel() {
     if (pulseRaf) { cancelAnimationFrame(pulseRaf); pulseRaf = 0; }
   }
+
+  document.addEventListener('lite:change', function () {
+    if (isOpen) pulseStart();
+  });
 
   var isOpen = false;
   var busy = false;

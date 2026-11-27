@@ -6,8 +6,8 @@
 (function () {
   if (window.__marvin) return;
 
-  var PANEL_CSS = 'marvin-panel.css?v=42';
-  var PANEL_JS = 'marvin-panel.js?v=42';
+  var PANEL_CSS = 'marvin-panel.css?v=43';
+  var PANEL_JS = 'marvin-panel.js?v=43';
 
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
