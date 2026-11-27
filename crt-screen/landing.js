@@ -896,7 +896,7 @@
     c.liftV = 0;
     bringToFront(c);
 
-    var exitX = safe.right - c.w / 2 - 10;
+    var exitX = safe.left + c.w / 2 + 10;
     var others = cards.filter(function (o) { return o !== c && o.home; });
     others.sort(function (a, b) { return a.y - b.y; });
     others.forEach(function (o, i) {
@@ -1612,16 +1612,20 @@
       return;
     }
 
-    var N = 6;
+    var N = 12;
     var hw = c.w / 2, hh = c.h / 2;
+    /* each strip overlaps its neighbour by a couple of pixels so the clip
+       edge of one is painted over by the next; without this the anti-aliased
+       clip seams read as cut lines across a flexing print */
+    var overlap = 2;
     for (var i = 0; i < N; i += 1) {
-      var u0 = Math.max(0, i / N - 0.002);
-      var u1 = Math.min(1, (i + 1) / N + 0.002);
       var um = (i + 0.5) / N;
       var b = bend * Math.sin(Math.PI * um);
       var bx = bendX * Math.sin(Math.PI * um);
-      var lx0 = -hw + (i / N) * c.w;
-      var lx1 = -hw + ((i + 1) / N) * c.w;
+      var lx0 = -hw + (i / N) * c.w - (i > 0 ? overlap : 0);
+      var lx1 = -hw + ((i + 1) / N) * c.w + (i < N - 1 ? overlap : 0);
+      var u0 = Math.max(0, (lx0 + hw) / c.w);
+      var u1 = Math.min(1, (lx1 + hw) / c.w);
       var q = [
         cardPoint(c, cx, cy, rot, s, lx0 + bx * 0.25, -hh + b * 0.25),
         cardPoint(c, cx, cy, rot, s, lx1 + bx * 0.25, -hh + b * 0.25),
