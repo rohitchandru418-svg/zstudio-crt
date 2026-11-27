@@ -527,10 +527,11 @@
      displacement after the air has passed.
      ------------------------------------------------------------ */
   var WIND = {
-    enabled: true, strength: 6.26, dragStrength: 0.3, radius: 160,
+    enabled: true, strength: 6.26, dragStrength: 0.3, radius: 340,
     minSpeed: 1000, maxSpeed: 12000, speedCurve: 2, strokePause: 220,
-    impulse: 0.08, drift: 1, mass: 0.7, friction: 2.75, spin: 1.55,
-    lift: 0.8, tilt: 1.4, response: 11.5, decay: 1.25, variation: 0.76
+    impulse: 0.14, drift: 1, mass: 0.7, friction: 2.75, spin: 1.55,
+    lift: 0.5, tilt: 1.4, tiltX: 0.22, tiltZ: 0.16,
+    response: 11.5, decay: 1.25, variation: 0.76
   };
   var windSample = createWindSample();
   var windState = {
@@ -623,7 +624,7 @@
     state.exposure = Math.max(state.exposure, amount);
     if (added === 0) return;
     var mass = Math.max(0.001, controls.mass || 0.7);
-    var impulse = Math.max(0, controls.impulse || 0.08) * added / amount / mass;
+    var impulse = Math.max(0, controls.impulse || 0.08) * added / mass;
     state.vx += x * impulse * (controls.drift || 0.45) * 24;
     state.vz += z * impulse * (controls.drift || 0.45) * 24;
     state.spinVelocity += torque * impulse * (controls.spin || 0.65) * 24;
@@ -742,15 +743,16 @@
       var variation = 1 - WIND.variation * (0.5 + Math.sin(c.i * 2.39996) * 0.5);
       var exposure = 1 - clamp(c.lift + Math.abs(c.bend) / (c.h * 2), 0, 1);
       var mobility = 0.12 + exposure * 0.88;
-      var influence = windFalloff(distance, WIND.radius) * variation;
+      var influence = windFalloff(distance, WIND.radius);
+      var push = (amount / WIND.strength) * influence * variation;
       var cardRadius = Math.max(1, Math.hypot(c.w, c.h) * 0.25);
       var glancing = clamp((offsetX * dirY - offsetY * dirX) / cardRadius, -1, 1);
       var alignment = Math.sin(2 * (heading - c.rot)) * 0.25;
-      var torque = clamp(glancing + alignment, -1, 1) * amount * influence;
-      var canAdd = windState.strokeId !== motion.strokeId || amount * variation > motion.exposure;
+      var unitTorque = clamp(glancing + alignment, -1, 1);
+      var canAdd = windState.strokeId !== motion.strokeId || push > motion.exposure;
 
-      if (canAdd) {
-        applyWindStroke(motion, windState.strokeId, dirX * mobility, dirY * mobility, torque * mobility, amount, WIND);
+      if (canAdd && push > 0) {
+        applyWindStroke(motion, windState.strokeId, dirX * mobility, dirY * mobility, unitTorque * mobility, push, WIND);
       }
       advanceWindMotion(motion, 0, 0, 0, dt, WIND);
 
@@ -784,7 +786,7 @@
         var tipScale = WIND.tilt * flutter;
         c.windTiltX = settleWind(c.windTiltX, my * tipScale, dt, WIND.response);
         c.windTiltZ = settleWind(c.windTiltZ, -mx * tipScale, dt, WIND.response);
-        var clearance = windTiltClearance(c.w, c.h, c.windTiltX, c.windTiltZ, c.rot + c.windTwist, c.lift);
+        var clearance = windTiltClearance(c.w, c.h, c.windTiltX * WIND.tiltX, c.windTiltZ * WIND.tiltZ, c.rot + c.windTwist, c.lift);
         c.windLift = Math.max(clearance / c.h, settleWind(c.windLift, airborne * WIND.lift, dt, WIND.response));
         c.windTwist = settleWind(c.windTwist, 0, dt, WIND.response);
         windEnergy = Math.max(windEnergy, Math.hypot(motion.vx, motion.vz) * 600);
@@ -1238,8 +1240,8 @@
       c.lx += (c.lxT - c.lx) * lean;
       c.ly += (c.lyT - c.ly) * lean;
 
-      var yawT = calm ? c.yaw0 : c.yaw0 + c.lx * 0.17 + c.windTiltZ * 0.16 + Math.sin(now * 0.00043 + c.i * 1.9) * 0.02;
-      var pitchT = calm ? c.pitch0 : c.pitch0 + c.ly * 0.13 + c.windTiltX * 0.22 + clamp(c.vx * 0.00016, -0.06, 0.06);
+      var yawT = calm ? c.yaw0 : c.yaw0 + c.lx * 0.17 + c.windTiltZ * WIND.tiltZ + Math.sin(now * 0.00043 + c.i * 1.9) * 0.02;
+      var pitchT = calm ? c.pitch0 : c.pitch0 + c.ly * 0.13 + c.windTiltX * WIND.tiltX + clamp(c.vx * 0.00016, -0.06, 0.06);
       var poseEase = 1 - Math.exp(-9 * dt);
       c.yaw += (yawT - c.yaw) * poseEase;
       c.pitch += (pitchT - c.pitch) * poseEase;
@@ -1357,8 +1359,21 @@
     wellHint.last = now;
 
     var best = null, bestD = Infinity;
+    var keepClear = {
+      left: slotRect.left - 18, right: slotRect.right + 18,
+      top: slotRect.top - 18, bottom: slotRect.bottom + 18
+    };
     cards.forEach(function (c) {
       if (!c.home || c.drag || c.locked || c.breeze || c.settleLift) return;
+      var r = cardRectOf(c);
+      var blocked = false;
+      [heroRect, keepClear].forEach(function (q) {
+        if (!q) return;
+        var ox = Math.min(r.right, q.right) - Math.max(r.left, q.left);
+        var oy = Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top);
+        if (ox > 0 && oy > 0) blocked = true;
+      });
+      if (blocked) return;
       var d = Math.hypot(c.rx - slotRect.cx, c.ry - slotRect.cy);
       if (d < bestD) { bestD = d; best = c; }
     });
