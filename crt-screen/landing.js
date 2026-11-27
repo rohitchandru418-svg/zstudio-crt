@@ -19,7 +19,7 @@
 
   var WORKS = [
     {
-      about: true, art: -1,
+      about: true, art: -1, img: 'works/marvin.svg?v=2',
       title: 'Minsky', year: 'About', kind: 'Product studio \u00b7 Tamil Nadu',
       blurb: 'Minsky is a product studio building simple, thoughtful tech systems for your ideas. We design, develop and deploy web apps \u2014 small team, long engagements, and a bias for the tactile detail.'
     },
@@ -255,14 +255,14 @@
   var DPR = Math.min(DPR_CAP, window.devicePixelRatio || 1);
 
   var IMG_CACHE = {};
-  function artworkImage(src, w, h) {
+  function artworkImage(src, w, h, fit) {
     var img = IMG_CACHE[src];
     if (!img || !img.complete || !img.naturalWidth) return null;
     var c = document.createElement('canvas');
     c.width = w;
     c.height = h;
     var g = c.getContext('2d');
-    var s = Math.max(w / img.naturalWidth, h / img.naturalHeight);
+    var s = (fit === 'contain' ? Math.min : Math.max)(w / img.naturalWidth, h / img.naturalHeight);
     var dw = img.naturalWidth * s, dh = img.naturalHeight * s;
     g.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
     return c;
@@ -317,13 +317,17 @@
 
     var rnd = mulberry32(1013 + index * 7919);
     var artW = 640, artH = Math.round(640 * ph / pw);
-    var art = (work.img && artworkImage(work.img, artW, artH)) ||
+    var art = (work.img && artworkImage(work.img, artW, artH, work.about ? 'contain' : 'cover')) ||
               artwork(work.art === undefined ? index : work.art, artW, artH, rnd);
 
     g.save();
     g.beginPath();
     g.rect(pad, pad, pw, ph);
     g.clip();
+    if (work.about) {
+      g.fillStyle = '#0b0a08';
+      g.fillRect(pad, pad, pw, ph);
+    }
     g.drawImage(art, pad, pad, pw, ph);
     g.restore();
 
