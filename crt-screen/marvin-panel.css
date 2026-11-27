@@ -155,6 +155,8 @@
   align-items: center;
   /* the barrel pinches the corners, so the copy keeps clear of them */
   padding: clamp(52px, 8.4vh, 96px) clamp(44px, 6vw, 112px) clamp(38px, 6vh, 68px);
+  /* the barrel pinches hardest at the bottom corners */
+  padding-bottom: clamp(44px, 7vh, 74px);
   background: radial-gradient(ellipse 108% 100% at 50% 0%, #15110e 0%, #0a0807 58%, #060505 100%);
   transform-origin: 50% 50%;
   overflow: hidden;
@@ -216,35 +218,250 @@
   color: #8f877b;
 }
 
+/* ---- presence: the character, at panel scale ---- */
+.mv-head__right {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 2vw, 22px);
+  min-width: 0;
+}
+
+.mv-face {
+  display: block;
+  width: 38px;
+  height: 38px;
+  margin: -8px 0 -8px -2px;
+  flex: 0 0 auto;
+}
+
+.mv-face svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.mv-face .marvin__body { filter: drop-shadow(0 4px 10px rgb(0 0 0 / .6)); }
+
+.mv-head__name {
+  font-size: 10px;
+  letter-spacing: .22em;
+}
+
+.mv-head__state {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8.5px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: #8f877b;
+  margin-left: 4px;
+  min-width: 5ch;
+}
+
+.mv.is-thinking .mv-head__state { color: #ffb469; }
+
+/* ---- channel strip: an old tuner, not a tab bar ---- */
+.mv-channels {
+  display: flex;
+  border: 1px solid rgb(239 232 220 / .13);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.mv-ch {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 9px;
+  background: none;
+  border: 0;
+  border-right: 1px solid rgb(239 232 220 / .09);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: #8f877b;
+  cursor: pointer;
+  transition: background .18s ease, color .18s ease;
+}
+
+.mv-ch:last-child { border-right: 0; }
+.mv-ch i { font-style: normal; opacity: .5; font-size: 8px; }
+.mv-ch:not(:disabled):hover { color: #efe8dc; background: rgb(239 232 220 / .07); }
+.mv-ch[aria-selected="true"] { color: #0b0908; background: #efe8dc; }
+.mv-ch[aria-selected="true"] i { opacity: .62; }
+.mv-ch:disabled { opacity: .3; cursor: default; }
+.mv-ch:focus-visible { outline: 1px solid #efe8dc; outline-offset: -1px; }
+
+/* ---- the live line ---- */
+.mv-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgb(239 232 220 / .08);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9.5px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: #8f877b;
+  cursor: default;
+  transition: color .3s ease;
+}
+
+.mv-status[data-tone="work"] { color: #c9bfae; cursor: pointer; }
+.mv-status[data-tone="ask"] { color: #efe8dc; }
+.mv-status[data-tone="done"] { color: #efe8dc; }
+
+.mv-status__text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.mv-status[data-tone="work"] .mv-status__text::after,
+.mv-status[data-tone="ask"] .mv-status__text::after {
+  content: "\258C";
+  margin-left: 3px;
+  animation: mv-blink 1s steps(1, end) infinite;
+}
+
+/* ---- confidence: signal strength, not a percentage ---- */
+.mv-signal {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 10px;
+  flex: 0 0 auto;
+}
+
+.mv-signal i {
+  display: block;
+  width: 3px;
+  border-radius: 1px;
+  background: rgb(239 232 220 / .16);
+  transition: background .3s ease;
+}
+
+.mv-signal i:nth-child(1) { height: 4px; }
+.mv-signal i:nth-child(2) { height: 7px; }
+.mv-signal i:nth-child(3) { height: 10px; }
+
+.mv-signal[data-level="strong"] i { background: #efe8dc; }
+.mv-signal[data-level="thin"] i:nth-child(1),
+.mv-signal[data-level="thin"] i:nth-child(2) { background: #ffb469; }
+.mv-signal[data-level="none"] i:nth-child(1) { background: #e9500e; animation: mv-pulse 1.4s ease-in-out infinite; }
+
+/* ---- the microphone ---- */
+.mv-mic {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: 1px solid rgb(239 232 220 / .22);
+  border-radius: 3px;
+  color: #efe8dc;
+  cursor: pointer;
+  transition: background .2s ease, border-color .2s ease, color .2s ease;
+}
+
+.mv-mic svg { width: 15px; height: 15px; }
+.mv-mic:hover { background: rgb(239 232 220 / .09); border-color: rgb(239 232 220 / .4); }
+.mv-mic:focus-visible { outline: 1px solid #efe8dc; outline-offset: 2px; }
+
+.mv-mic.is-live {
+  background: #e9500e;
+  border-color: #e9500e;
+  color: #0b0908;
+  animation: mv-mic 1.3s ease-out infinite;
+}
+
+@keyframes mv-mic {
+  0%   { box-shadow: 0 0 0 0 rgb(233 80 14 / .55); }
+  100% { box-shadow: 0 0 0 9px rgb(233 80 14 / 0); }
+}
+
+/* ---- voice controls in the foot ---- */
+.mv-voice {
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  background: none;
+  border: 0;
+  color: #8f877b;
+  max-width: 132px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.mv-voice:focus-visible { outline: 1px solid #efe8dc; outline-offset: 2px; }
+
+.mv-mute {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: #8f877b;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: color .2s ease;
+}
+
+.mv-mute svg { width: 15px; height: 15px; }
+.mv-mute[aria-pressed="true"] { color: #efe8dc; }
+.mv-mute[aria-pressed="false"] .mv-mute__wave { opacity: .12; }
+.mv-mute:hover { color: #efe8dc; }
+
 /* ------------------------------------------------------------
    scroll body
    ------------------------------------------------------------ */
+/* the stage: three channels, one tube. The body is only a frame —
+   each pane owns its own scroll so a long trace never pushes the
+   input off the glass. */
 .mv-body {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
-  /* a short conversation sits just above the input, chat-style */
+  overflow: hidden;
+  transform-origin: 50% 50%;
+}
+
+.mv-pane {
+  position: absolute;
+  inset: 0;
+  display: none;
+  overflow: hidden;
+}
+
+.mv-pane.is-on { display: block; }
+
+.mv-pane__scroll {
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgb(239 232 220 / .18) transparent;
   overscroll-behavior: contain;
   padding: 16px 2px 4px;
   scrollbar-width: thin;
   scrollbar-color: rgb(239 232 220 / .18) transparent;
+  /* the tube has no visible scrollbar affordance of its own */
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent 100%);
 }
 
-.mv-body::-webkit-scrollbar { width: 6px; }
-.mv-body::-webkit-scrollbar-thumb { background: rgb(239 232 220 / .18); border-radius: 3px; }
-
-.mv-body::-webkit-scrollbar { width: 8px; }
-.mv-body::-webkit-scrollbar-track { background: transparent; }
-.mv-body::-webkit-scrollbar-thumb {
+.mv-pane__scroll::-webkit-scrollbar { width: 7px; }
+.mv-pane__scroll::-webkit-scrollbar-track { background: transparent; }
+.mv-pane__scroll::-webkit-scrollbar-thumb {
   background: rgb(239 232 220 / .16);
   border-radius: 8px;
 }
 
-.mv-body > :first-child { margin-top: auto; }
+/* a short conversation sits just above the input, chat-style */
+.mv-thread {
+  display: flex;
+  flex-direction: column;
+  margin-top: auto;
+}
 
 .mv-greet {
   font-family: var(--font-ui, sans-serif);

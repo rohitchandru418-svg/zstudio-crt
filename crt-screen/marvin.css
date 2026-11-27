@@ -101,21 +101,61 @@
 .m-ex { opacity: 0; transform: scale(.82); }
 .m-ex--idle { opacity: 1; transform: none; }
 
+/* every working face hides the idle eyes; "speak" keeps them */
 .marvin__body[data-emote="happy"] .m-ex--idle,
 .marvin__body[data-emote="wink"] .m-ex--idle,
 .marvin__body[data-emote="love"] .m-ex--idle,
 .marvin__body[data-emote="shock"] .m-ex--idle,
-.marvin__body[data-emote="happy"] .marvin__eyes,
-.marvin__body[data-emote="wink"] .marvin__eyes,
-.marvin__body[data-emote="love"] .marvin__eyes,
-.marvin__body[data-emote="shock"] .marvin__eyes { opacity: 0; }
+.marvin__body[data-emote="think"] .m-ex--idle,
+.marvin__body[data-emote="scan"] .m-ex--idle,
+.marvin__body[data-emote="squint"] .m-ex--idle,
+.marvin__body[data-emote="unsure"] .m-ex--idle,
+.marvin__body[data-emote="ask"] .m-ex--idle,
+.marvin__body[data-emote="focus"] .m-ex--idle { opacity: 0; }
 
 .marvin__body[data-emote="happy"] .m-ex--happy,
 .marvin__body[data-emote="wink"] .m-ex--wink,
 .marvin__body[data-emote="love"] .m-ex--love,
-.marvin__body[data-emote="shock"] .m-ex--shock {
+.marvin__body[data-emote="shock"] .m-ex--shock,
+.marvin__body[data-emote="think"] .m-ex--think,
+.marvin__body[data-emote="scan"] .m-ex--scan,
+.marvin__body[data-emote="squint"] .m-ex--squint,
+.marvin__body[data-emote="unsure"] .m-ex--unsure,
+.marvin__body[data-emote="ask"] .m-ex--ask,
+.marvin__body[data-emote="focus"] .m-ex--focus {
   opacity: 1;
   transform: none;
+}
+
+/* researching: two bars sweeping the glass */
+.m-scanbar { animation: m-scan 1.15s ease-in-out infinite alternate; }
+.m-scanbar--b { animation-delay: -.35s; }
+@keyframes m-scan {
+  from { transform: translateX(-1.6px); }
+  to   { transform: translateX(1.6px); }
+}
+
+/* unsure: the eyes drift, like he is looking for the answer */
+.marvin__body[data-emote="unsure"] .m-ex--unsure {
+  animation: m-unsure 2.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes m-unsure {
+  0%, 100% { transform: translate(0, 0); }
+  30%      { transform: translate(1.3px, -.7px); }
+  60%      { transform: translate(-1.2px, .6px); }
+}
+
+/* asking: leans in, eyes wide */
+.marvin__body[data-emote="ask"] .m-ex--ask {
+  animation: m-ask 1.8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes m-ask {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.1); }
 }
 
 .m-mouth__l { opacity: 0; }
@@ -123,10 +163,17 @@
 .marvin__body[data-emote="happy"] .m-mouth__l--idle,
 .marvin__body[data-emote="wink"] .m-mouth__l--idle,
 .marvin__body[data-emote="love"] .m-mouth__l--idle,
-.marvin__body[data-emote="shock"] .m-mouth__l--idle { opacity: 0; }
+.marvin__body[data-emote="shock"] .m-mouth__l--idle,
+.marvin__body[data-emote="speak"] .m-mouth__l--idle { opacity: 0; }
 .marvin__body[data-emote="happy"] .m-mouth__l--happy,
 .marvin__body[data-emote="love"] .m-mouth__l--happy,
 .marvin__body[data-emote="shock"] .m-mouth__l--shock { opacity: 1; }
+
+/* the speaking mouth is driven by --mouth from the speech boundary events */
+.marvin__body[data-emote="speak"] .m-mouth__l--speak {
+  opacity: 1;
+  transform: scaleY(var(--mouth, .3));
+}
 
 /* the tooltip that carries the greeting and the hover lines */
 .marvin__bubble {

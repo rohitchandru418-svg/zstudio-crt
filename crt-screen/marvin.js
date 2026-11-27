@@ -6,8 +6,8 @@
 (function () {
   if (window.__marvin) return;
 
-  var PANEL_CSS = 'marvin-panel.css?v=28';
-  var PANEL_JS = 'marvin-panel.js?v=28';
+  var PANEL_CSS = 'marvin-panel.css?v=36';
+  var PANEL_JS = 'marvin-panel.js?v=36';
 
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -118,10 +118,42 @@
           '<circle cx="34.7" cy="45.2" r="5.1"/>' +
           '<circle cx="53.3" cy="45.2" r="5.1"/>' +
         '</g>' +
+
+        /* working states — the ones the chat actually uses */
+        '<g class="m-ex m-ex--think" fill="#ffd7a4">' +
+          '<rect x="31.6" y="38.6" width="6.2" height="7.4" rx="2.4"/>' +
+          '<rect x="50.2" y="38.6" width="6.2" height="7.4" rx="2.4"/>' +
+        '</g>' +
+
+        '<g class="m-ex m-ex--scan">' +
+          '<rect class="m-scanbar" x="31.4" y="43.4" width="6.6" height="2.4" rx="1.2" fill="#ffd7a4"/>' +
+          '<rect class="m-scanbar m-scanbar--b" x="50" y="43.4" width="6.6" height="2.4" rx="1.2" fill="#ffd7a4"/>' +
+        '</g>' +
+
+        '<g class="m-ex m-ex--squint" fill="none" stroke="#ffd7a4" stroke-width="2.1" stroke-linecap="round">' +
+          '<path d="M30.9 43.6 L38.5 46.4"/>' +
+          '<path d="M57.1 43.6 L49.5 46.4"/>' +
+        '</g>' +
+
+        '<g class="m-ex m-ex--unsure" fill="#ffd7a4">' +
+          '<rect x="31.6" y="41.2" width="6.2" height="8.4" rx="3.1"/>' +
+          '<rect x="50.2" y="41.2" width="6.2" height="8.4" rx="3.1"/>' +
+        '</g>' +
+
+        '<g class="m-ex m-ex--ask" fill="#ffd7a4">' +
+          '<circle cx="34.7" cy="44.4" r="4.5"/>' +
+          '<circle cx="53.3" cy="44.4" r="4.5"/>' +
+        '</g>' +
+
+        '<g class="m-ex m-ex--focus" fill="#ffd7a4">' +
+          '<rect x="30.4" y="42.4" width="8.4" height="5" rx="2.5"/>' +
+          '<rect x="49.2" y="42.4" width="8.4" height="5" rx="2.5"/>' +
+        '</g>' +
       '</g>' +
 
       '<g class="m-mouth">' +
         '<rect class="m-mouth__l m-mouth__l--idle" x="40.7" y="55.6" width="6.6" height="1.7" rx=".85" fill="#ffd7a4" fill-opacity=".36"/>' +
+        '<ellipse class="m-mouth__l m-mouth__l--speak" cx="44" cy="56.4" rx="3.1" ry="2.2" fill="#ffd7a4" fill-opacity=".62"/>' +
         '<path class="m-mouth__l m-mouth__l--happy" d="M39.7 55.2 Q44 60.1 48.3 55.2" fill="none" stroke="#ffd7a4" stroke-opacity=".6" stroke-width="1.6" stroke-linecap="round"/>' +
         '<ellipse class="m-mouth__l m-mouth__l--shock" cx="44" cy="57.6" rx="2" ry="2.6" fill="#ffd7a4" fill-opacity=".55"/>' +
       '</g>' +
@@ -318,6 +350,12 @@
 
   document.addEventListener('boot:done', greet);
 
+  /* ?open=1 opens the panel without a click — used by the review reel
+     and by the responsive harness; it is not linked from anywhere */
+  if (/[?&]open=1/.test(location.search)) {
+    setTimeout(function () { open(); }, 1200);
+  }
+
   (function waitForBoot() {
     if (!document.getElementById('boot') || window.__bootDone) {
       setTimeout(greet, 350);
@@ -397,5 +435,5 @@
 
   btn.addEventListener('click', open);
 
-  window.__marvin = { open: open, button: btn, dock: dock };
+  window.__marvin = { open: open, button: btn, dock: dock, face: function () { return SVG; } };
 })();
