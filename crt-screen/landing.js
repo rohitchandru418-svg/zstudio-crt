@@ -2133,14 +2133,18 @@
       if (artHost && artHost.parentNode) {
         artHost.parentNode.replaceChild(plate, artHost);
       } else {
-        root.querySelector('.story__panel').prepend(plate);
+        var plateHost = root.querySelector('.story__plate') || root.querySelector('.story__panel');
+        plateHost.prepend(plate);
       }
       artHost = plate;
 
       lastFocus = document.activeElement;
       storyOpen = true;
-      root.classList.add('is-open');
       root.setAttribute('aria-hidden', 'false');
+      /* let the closed (undeveloped) styles land before opening, so the
+         plate actually transitions instead of snapping in fully formed */
+      void root.offsetWidth;
+      root.classList.add('is-open');
       if (closeBtn) closeBtn.focus();
       Sound.select();
     }
@@ -2155,6 +2159,10 @@
     }
 
     if (root) {
+      var copyKids = root.querySelectorAll('.story__copy > *');
+      for (var k = 0; k < copyKids.length; k += 1) {
+        copyKids[k].style.setProperty('--i', k);
+      }
       root.addEventListener('click', function (e) {
         if (e.target.closest && e.target.closest('[data-story-close]')) close();
       });

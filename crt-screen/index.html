@@ -41,7 +41,7 @@
     .boot, .boot__bar i, .boot__label { transition-duration: .01ms; }
   }
 </style>
-<link rel="stylesheet" href="landing.css?v=85">
+<link rel="stylesheet" href="landing.css?v=88">
 <link rel="stylesheet" href="marvin.css?v=11">
 </head>
 <body>
@@ -125,7 +125,10 @@
             <div class="story__scrim" data-story-close></div>
             <button class="story__close" type="button" data-story-close aria-label="Close the project">Close</button>
             <div class="story__panel">
-              <canvas class="story__art" id="storyArt" width="720" height="880" aria-hidden="true"></canvas>
+              <div class="story__plate">
+                <canvas class="story__art" id="storyArt" width="720" height="880" aria-hidden="true"></canvas>
+                <span class="story__scan" aria-hidden="true"></span>
+              </div>
               <div class="story__copy">
                 <p class="story__eyebrow" id="storyEyebrow">Selected work</p>
                 <h2 class="story__title" id="storyTitle"></h2>
@@ -211,7 +214,7 @@
 
   <script src="crt-screen.js?v=12"></script>
   <script src="glow.js?v=17"></script>
-  <script src="landing.js?v=114"></script>
+  <script src="landing.js?v=115"></script>
   <script src="marvin.js?v=20" defer></script>
 </body>
 </html>
