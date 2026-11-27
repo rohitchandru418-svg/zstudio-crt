@@ -21,26 +21,37 @@
 
   var WORKS = [
     {
+      about: true, art: -1,
+      title: 'Zstudio', year: 'About', kind: 'Studio \u00b7 Amsterdam',
+      blurb: 'Zstudio is an independent design and development studio. We build sites, products and interactive worlds for people who care how things feel. Small team, long engagements, and a bias for the tactile detail.'
+    },
+    {
+      art: 0,
       title: 'Halcyon', year: '2026', kind: 'Web \u00b7 Identity',
       blurb: 'A slow-reading index for an architecture practice. Plans unfold as you scroll; nothing announces itself until you stop.'
     },
     {
+      art: 1,
       title: 'Meridian', year: '2026', kind: 'Web \u00b7 Product',
       blurb: 'Ticketing for a chamber music festival, built around one long scroll and a seating plan that breathes.'
     },
     {
+      art: 2,
       title: 'Vellum', year: '2025', kind: 'Web \u00b7 Editorial',
       blurb: 'A reading room for a small press. One typeface, real paper grain, and a column that never fights the text.'
     },
     {
+      art: 3,
       title: 'Quarry', year: '2025', kind: 'Web \u00b7 Archive',
       blurb: 'A materials library: 240 stone samples, each photographed under the same lamp so the comparison is honest.'
     },
     {
+      art: 4,
       title: 'Signal', year: '2024', kind: 'Web \u00b7 Audio',
       blurb: 'An archive of field recordings, played back through a waveform drawn by hand and set in motion by the sound.'
     },
     {
+      art: 5,
       title: 'Terrain', year: '2024', kind: 'Web \u00b7 Interactive',
       blurb: 'A mapping tool for walking artists. A route becomes an elevation profile you can read at a glance.'
     }
@@ -50,6 +61,22 @@
      helpers
      ------------------------------------------------------------ */
   function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+
+  /* the site's custom ease: slow to leave, quick through the middle,
+     soft on arrival. Used for the drop settle. */
+  function thomasEase(t) {
+    t = clamp(t, 0, 1);
+    if (t === 0 || t === 1) return t;
+    var low = 0, high = 1, mid = t;
+    for (var i = 0; i < 16; i += 1) {
+      var inv = 1 - mid;
+      var x = 3 * inv * inv * mid * 0.625 + mid * mid * mid;
+      if (x < t) low = mid; else high = mid;
+      mid = (low + high) / 2;
+    }
+    var u = 1 - mid;
+    return 3 * u * u * mid * 0.05 + 3 * u * mid * mid + mid * mid * mid;
+  }
 
   function mulberry32(seed) {
     var a = seed >>> 0;
@@ -111,7 +138,40 @@
 
     var i, k, x, y, d, r, rg;
 
-    if (index === 0) {
+    if (index === -1) {
+      /* portrait — a soft head-and-shoulders silhouette in the tube light */
+      var px = W * 0.5, py = H * 0.39, pr = W * 0.17;
+      rg = g.createRadialGradient(W * 0.5, H * 0.28, 0, W * 0.5, H * 0.44, W * 0.78);
+      rg.addColorStop(0, light(0.20));
+      rg.addColorStop(0.55, light(0.07));
+      rg.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = rg;
+      g.fillRect(0, 0, W, H);
+
+      g.fillStyle = 'rgba(7,6,5,0.74)';
+      g.beginPath();
+      g.ellipse(W * 0.5, H * 1.02, W * 0.48, H * 0.40, 0, Math.PI, 0, false);
+      g.fill();
+
+      g.fillStyle = 'rgba(10,9,7,0.86)';
+      g.beginPath();
+      g.ellipse(px, py, pr * 0.82, pr, 0, 0, Math.PI * 2);
+      g.fill();
+      g.fillRect(px - pr * 0.30, py + pr * 0.52, pr * 0.60, pr * 0.92);
+
+      g.strokeStyle = light(0.36);
+      g.lineWidth = 1.4;
+      g.beginPath();
+      g.ellipse(px, py, pr * 0.82, pr, 0, Math.PI * 0.70, Math.PI * 1.30);
+      g.stroke();
+
+      g.fillStyle = light(0.18);
+      g.fillRect(W * 0.18, H * 0.70, W * 0.64, 1);
+      g.font = '500 ' + (W * 0.034).toFixed(1) + 'px "JetBrains Mono", ui-monospace, monospace';
+      g.fillStyle = light(0.42);
+      g.textAlign = 'center';
+      g.fillText('ZSTUDIO', W * 0.5, H * 0.78);
+    } else if (index === 0) {
       /* arcs */
       var cx = W * (0.14 + rnd() * 0.3);
       var cy = H * (0.74 + rnd() * 0.22);
@@ -228,7 +288,7 @@
     var ph = ch - pad - cw * 0.215;
 
     var rnd = mulberry32(1013 + index * 7919);
-    var art = artwork(index, 640, Math.round(640 * ph / pw), rnd);
+    var art = artwork(work.art === undefined ? index : work.art, 640, Math.round(640 * ph / pw), rnd);
 
     g.save();
     g.beginPath();
@@ -275,7 +335,8 @@
      cards
      ------------------------------------------------------------ */
   var cards = [];
-  var cardCount = 6;
+  var cardCount = 7;
+  var zTop = 20;
   var heroRect = null;
   var slotRect = null;
   var safe = null;
@@ -283,7 +344,7 @@
 
   function makeCards(cw, count) {
     cards = WORKS.slice(0, count).map(function (work, i) {
-      var ch = cw * 1.22;
+      var ch = cw * 1.25;
       return {
         work: work, i: i, w: cw, h: ch,
         canvas: buildCard(work, i, cw, ch),
@@ -298,8 +359,14 @@
         yaw0: ((i % 3) - 1) * 0.035 + (i % 2 ? 0.012 : -0.012),
         pitch0: ((i % 4) - 1.5) * 0.018,
         hover: false, drag: false, home: true, flying: false, free: false,
+        about: !!work.about,
         grabX: 0, grabY: 0,
         rx: 0, ry: 0, restRot: 0,
+        windMotion: createWindMotion(),
+        windTiltX: 0, windTiltZ: 0, windLift: 0, windTwist: 0,
+        z: i + 1, stackLift: 0, locked: false,
+        settleLift: null, returnAt: 0, prevVy: 0,
+        bendX: 0, bendXV: 0,
         reveal: 1, placed: false, openOnArrive: false
       };
     });
@@ -307,18 +374,18 @@
 
   var ANCHORS = {
     desktop: [
-      [-0.62, -0.38, -4], [-0.80, 0.30, 5],
-      [ 0.62, -0.40, 3],  [ 0.80, 0.24, -5],
-      [-0.20, -0.84, -2], [ 0.28, 0.86, 4]
+      [-0.76, -0.74, -8], [-0.20, -0.90, 7], [ 0.74, -0.78, -6],
+      [-0.80,  0.52,  8], [-0.36,  0.02, -4], [ 0.82,  0.16,  9],
+      [ 0.18,  0.82, -7]
     ],
     tablet: [
-      [-0.74, -0.52, -4], [ 0.74, -0.56, 5],
-      [-0.76, 0.32, 3],   [ 0.76, 0.38, -5],
-      [ 0.00, -0.90, 2],  [ 0.00, 0.88, 4]
+      [-0.78, -0.62, -7], [ 0.00, -0.88, 6], [ 0.78, -0.60, -5],
+      [-0.78,  0.38,  7], [-0.04,  0.00, -4], [ 0.78,  0.42,  8],
+      [-0.06,  0.84, -6]
     ],
     mobile: [
-      [-0.80, -0.76, -4], [ 0.80, -0.68, 5],
-      [ 0.82, 0.66, -5]
+      [-0.66, -0.72, -6], [ 0.66, -0.74, 6],
+      [-0.68,  0.50,  7], [ 0.58,  0.64, -5]
     ]
   };
 
@@ -348,14 +415,14 @@
     };
 
     var tier = W < 620 ? 'mobile' : W < 1024 ? 'tablet' : 'desktop';
-    var cw = tier === 'desktop' ? clamp(150, Math.min(W, H) * 0.168, 190)
-           : tier === 'tablet'  ? clamp(130, Math.min(W, H) * 0.19, 168)
-           : clamp(98, W * 0.275, 136);
+    var cw = tier === 'desktop' ? clamp(132, Math.min(W, H) * 0.148, 172)
+           : tier === 'tablet'  ? clamp(112, Math.min(W, H) * 0.165, 148)
+           : clamp(88, W * 0.245, 118);
 
     document.documentElement.style.setProperty('--card-w', cw + 'px');
-    document.documentElement.style.setProperty('--card-h', (cw * 1.22) + 'px');
+    document.documentElement.style.setProperty('--card-h', (cw * 1.25) + 'px');
 
-    var count = tier === 'mobile' ? 3 : 6;
+    var count = tier === 'mobile' ? 4 : 7;
     cardCount = count;
 
     if (!cards.length || Math.abs(cards[0].w - cw) > 3 || cards.length !== count) {
@@ -450,13 +517,281 @@
      ------------------------------------------------------------ */
   var pointer = { x: -9999, y: -9999, vx: 0, vy: 0, t: 0 };
   var active = null;
-  var WIND_R = 620;
-  var AIR = 0.8;
-  var AIR_PULL = 9;
-  var TORQUE = 1.0;
   var K = 90, D = 8.0;
   var KR = 105, DR = 13;
   var SLOT_K = 170, SLOT_D = 16;
+
+  /* ------------------------------------------------------------
+     wind — the reference model: a gust sampled from the pointer's
+     speed, an impulse per stroke, and a damped sheet that keeps the
+     displacement after the air has passed.
+     ------------------------------------------------------------ */
+  var WIND = {
+    enabled: true, strength: 6.26, dragStrength: 0.3, radius: 160,
+    minSpeed: 1000, maxSpeed: 12000, speedCurve: 2, strokePause: 220,
+    impulse: 0.08, drift: 1, mass: 0.7, friction: 2.75, spin: 1.55,
+    lift: 0.8, tilt: 1.4, response: 11.5, decay: 1.25, variation: 0.76
+  };
+  var windSample = createWindSample();
+  var windState = {
+    x: 0, z: 0, amount: 0, pointerX: -9999, pointerY: -9999,
+    directionX: 0, directionY: 0, strokeId: 0, active: false
+  };
+  var windLastInput = performance.now();
+  var inspect = { active: false, phase: 'idle', card: null, t: 0, scanT: 0, exits: [], returnAt: 0, hold: false };
+  var wellHint = { found: false, count: 0, last: -1e9 };
+  var lastBreeze = -1e9;
+
+  function createWindSample(strokeId) {
+    return {
+      x: 0, y: 0, time: null, vx: 0, vy: 0,
+      gustX: 0, gustY: 0, gustTime: null,
+      strokeId: strokeId || 0, strokeArmed: true, moveTime: null, dragging: false
+    };
+  }
+
+  function setWindDragging(sample, dragging, strength) {
+    if (dragging && !sample.dragging) {
+      var scale = clamp(strength, 0, 1);
+      sample.gustX *= scale;
+      sample.gustY *= scale;
+    }
+    sample.dragging = dragging;
+  }
+
+  function sampleWindPointer(sample, x, y, time, controls, strengthScale) {
+    if (sample.time === null) {
+      sample.x = x; sample.y = y; sample.time = time;
+      return;
+    }
+    var seconds = Math.max(0.001, (time - sample.time) / 1000);
+    sample.vx = (x - sample.x) / seconds;
+    sample.vy = (y - sample.y) / seconds;
+    if (x !== sample.x || y !== sample.y) {
+      if (sample.moveTime !== null && time - sample.moveTime >= (controls.strokePause || 220)) {
+        sample.strokeArmed = true;
+        sample.gustX = 0;
+        sample.gustY = 0;
+        sample.gustTime = null;
+      }
+      sample.moveTime = time;
+    }
+    var speed = Math.hypot(sample.vx, sample.vy);
+    var threshold = Math.max(0, controls.minSpeed || 0);
+    var range = Math.max(1, controls.maxSpeed - threshold);
+    var normalized = Math.min(1, Math.max(0, speed - threshold) / range);
+    var incoming = Math.pow(normalized, Math.max(1, controls.speedCurve || 2)) * Math.max(0, Math.min(1, strengthScale === undefined ? 1 : strengthScale));
+    if (incoming > 0) {
+      if (sample.strokeArmed) {
+        sample.strokeId += 1;
+        sample.strokeArmed = false;
+      }
+      var retained = windEnvelope(sample, time, controls.decay, 1);
+      var amount = Math.max(incoming, retained);
+      sample.gustX = sample.vx / speed * amount;
+      sample.gustY = sample.vy / speed * amount;
+      sample.gustTime = time;
+    }
+    sample.x = x;
+    sample.y = y;
+    sample.time = time;
+  }
+
+  function windEnvelope(sample, time, decay, strength) {
+    if (sample.gustTime === null) return 0;
+    var age = Math.max(0, (time - sample.gustTime) / 1000);
+    return Math.hypot(sample.gustX, sample.gustY) * strength * Math.exp(-decay * age);
+  }
+
+  function windFalloff(distance, radius) {
+    if (radius <= 0 || distance >= radius) return 0;
+    var t = Math.max(0, distance / radius);
+    return 1 - t * t * (3 - 2 * t);
+  }
+
+  function createWindMotion() {
+    return { vx: 0, vz: 0, spinVelocity: 0, dx: 0, dz: 0, dyaw: 0, strokeId: 0, exposure: 0 };
+  }
+
+  function applyWindStroke(state, strokeId, x, z, torque, amount, controls) {
+    if (strokeId <= 0 || amount <= 0) return;
+    if (state.strokeId !== strokeId) {
+      state.strokeId = strokeId;
+      state.exposure = 0;
+    }
+    var added = Math.max(0, amount - state.exposure);
+    state.exposure = Math.max(state.exposure, amount);
+    if (added === 0) return;
+    var mass = Math.max(0.001, controls.mass || 0.7);
+    var impulse = Math.max(0, controls.impulse || 0.08) * added / amount / mass;
+    state.vx += x * impulse * (controls.drift || 0.45) * 24;
+    state.vz += z * impulse * (controls.drift || 0.45) * 24;
+    state.spinVelocity += torque * impulse * (controls.spin || 0.65) * 24;
+  }
+
+  function advanceWindMotion(state, forceX, forceZ, torque, delta, controls) {
+    var dt = Math.min(0.05, Math.max(0, delta));
+    var mass = Math.max(0.001, controls.mass || 0.7);
+    var damping = Math.max(0, controls.friction || 2.75) / mass;
+    var decay = Math.exp(-damping * dt);
+    var velocityTime = damping > 0 ? -Math.expm1(-damping * dt) / damping : dt;
+    var accelerationTime = damping > 0 ? (dt - velocityTime) / damping : dt * dt * 0.5;
+    var forceGain = (controls.drift || 0.2) * 24 / mass;
+    var torqueGain = (controls.spin || 0.2) * 24 / mass;
+    var ax = forceX * forceGain;
+    var az = forceZ * forceGain;
+    var angularAcceleration = torque * torqueGain;
+    state.dx = state.vx * velocityTime + ax * accelerationTime;
+    state.dz = state.vz * velocityTime + az * accelerationTime;
+    state.dyaw = state.spinVelocity * velocityTime + angularAcceleration * accelerationTime;
+    state.vx = state.vx * decay + ax * velocityTime;
+    state.vz = state.vz * decay + az * velocityTime;
+    state.spinVelocity = state.spinVelocity * decay + angularAcceleration * velocityTime;
+    if (forceX === 0 && Math.abs(state.vx) < 1e-5) state.vx = 0;
+    if (forceZ === 0 && Math.abs(state.vz) < 1e-5) state.vz = 0;
+    if (torque === 0 && Math.abs(state.spinVelocity) < 1e-5) state.spinVelocity = 0;
+  }
+
+  function stopWindMotion(state) {
+    state.vx = 0; state.vz = 0; state.spinVelocity = 0;
+    state.dx = 0; state.dz = 0; state.dyaw = 0;
+  }
+
+  function settleWind(current, target, delta, response) {
+    var next = current + (target - current) * (1 - Math.exp(-response * delta));
+    return target === 0 && Math.abs(next) < 1e-5 ? 0 : next;
+  }
+
+  function windTiltClearance(width, height, tiltX, tiltZ, yaw, lift) {
+    var sx = Math.sin(tiltX), cx = Math.cos(tiltX);
+    var sz = Math.sin(tiltZ), cy = Math.cos(yaw), sy = Math.sin(yaw);
+    var edgeDrop = Math.abs(cx * sz * cy + sx * sy) * width * 0.5 +
+                   Math.abs(cx * sz * sy - sx * cy) * height * 0.5;
+    return Math.max(0, edgeDrop - Math.max(0, lift) * cx * Math.cos(tiltZ));
+  }
+
+  function clampCard(x, y, c) {
+    var hw = c.w / 2, hh = c.h / 2;
+    x = clamp(x, safe.left + hw, safe.right - hw);
+    y = clamp(y, safe.top + hh, safe.bottom - hh);
+    [slotRect, heroRect].forEach(function (r) {
+      if (!r) return;
+      var ox = Math.min(x + hw, r.right) - Math.max(x - hw, r.left);
+      var oy = Math.min(y + hh, r.bottom) - Math.max(y - hh, r.top);
+      if (ox > 0 && oy > 0 && (ox * oy) / (c.w * c.h) > 0.12) {
+        var cx = (r.left + r.right) / 2, cy = (r.top + r.bottom) / 2;
+        if (ox < oy) x += (x < cx ? -1 : 1) * (ox + 2);
+        else y += (y < cy ? -1 : 1) * (oy + 2);
+        x = clamp(x, safe.left + hw, safe.right - hw);
+        y = clamp(y, safe.top + hh, safe.bottom - hh);
+      }
+    });
+    return { x: x, y: y };
+  }
+
+  function windBlocked() {
+    return lite || reduceMotion.matches || storyOpen || inspect.active || document.hidden;
+  }
+
+  function resetWind() {
+    windSample = createWindSample(windSample.strokeId);
+    windState.amount = 0;
+    windState.active = false;
+    cards.forEach(function (c) { stopWindMotion(c.windMotion); });
+  }
+
+  function stepWind(dt, now) {
+    windEnergy = 0;
+    windPan = 0;
+    var active = !windBlocked() && WIND.enabled;
+    windState.active = active;
+    var amount = active ? windEnvelope(windSample, now, WIND.decay, WIND.strength) : 0;
+    if (amount < 1e-4) amount = 0;
+    var speed = Math.hypot(windSample.gustX, windSample.gustY);
+    var dirX = speed > 0 ? windSample.gustX / speed : 0;
+    var dirY = speed > 0 ? windSample.gustY / speed : 0;
+    windState.amount = amount;
+    windState.pointerX = windSample.x;
+    windState.pointerY = windSample.y;
+    windState.directionX = dirX;
+    windState.directionY = dirY;
+    windState.strokeId = windSample.strokeId;
+    windState.x = dirX * amount;
+    windState.z = dirY * amount;
+
+    var heading = Math.atan2(dirX, dirY);
+
+    cards.forEach(function (c) {
+      var motion = c.windMotion;
+      var canMove = active && amount > 0 && c.home && !c.drag && !c.locked && !c.flying && !c.settleLift && !c.breeze;
+
+      if (!canMove) {
+        stopWindMotion(motion);
+        c.windTiltX = settleWind(c.windTiltX, 0, dt, WIND.response);
+        c.windTiltZ = settleWind(c.windTiltZ, 0, dt, WIND.response);
+        c.windLift = settleWind(c.windLift, 0, dt, WIND.response);
+        c.windTwist = settleWind(c.windTwist, 0, dt, WIND.response);
+        return;
+      }
+
+      var cx = c.x + c.ax;
+      var cy = c.y + c.ay;
+      var offsetX = cx - windState.pointerX;
+      var offsetY = cy - windState.pointerY;
+      var distance = Math.hypot(offsetX, offsetY);
+      var variation = 1 - WIND.variation * (0.5 + Math.sin(c.i * 2.39996) * 0.5);
+      var exposure = 1 - clamp(c.lift + Math.abs(c.bend) / (c.h * 2), 0, 1);
+      var mobility = 0.12 + exposure * 0.88;
+      var influence = windFalloff(distance, WIND.radius) * variation;
+      var cardRadius = Math.max(1, Math.hypot(c.w, c.h) * 0.25);
+      var glancing = clamp((offsetX * dirY - offsetY * dirX) / cardRadius, -1, 1);
+      var alignment = Math.sin(2 * (heading - c.rot)) * 0.25;
+      var torque = clamp(glancing + alignment, -1, 1) * amount * influence;
+      var canAdd = windState.strokeId !== motion.strokeId || amount * variation > motion.exposure;
+
+      if (canAdd) {
+        applyWindStroke(motion, windState.strokeId, dirX * mobility, dirY * mobility, torque * mobility, amount, WIND);
+      }
+      advanceWindMotion(motion, 0, 0, 0, dt, WIND);
+
+      if (c.drag) {
+        c.windTwist = settleWind(c.windTwist, clamp(motion.spinVelocity * 0.08, -0.18, 0.18), dt, WIND.response);
+      } else {
+        var dx = motion.dx, dy = motion.dz;
+        var windScale = c.w / 0.58;
+        if (dx || dy || motion.dyaw) {
+          var nx = c.rx + dx * windScale;
+          var ny = c.ry + dy * windScale;
+          var cl = clampCard(nx, ny, c);
+          if (Math.abs(cl.x - nx) > 1e-6) motion.vx = 0;
+          if (Math.abs(cl.y - ny) > 1e-6) motion.vz = 0;
+          c.rx = cl.x;
+          c.ry = cl.y;
+          c.x = cl.x;
+          c.y = cl.y;
+          c.restRot += motion.dyaw;
+          c.rot += motion.dyaw;
+          c.vx = 0;
+          c.vy = 0;
+        }
+
+        var travelSpeed = Math.max(0.01, WIND.drift * 24 / WIND.friction);
+        var momentumScale = Math.max(travelSpeed, Math.hypot(motion.vx, motion.vz));
+        var mx = motion.vx / momentumScale;
+        var my = motion.vz / momentumScale;
+        var flutter = 0.08 + exposure * 0.92;
+        var airborne = Math.hypot(mx, my) * 0.45 * flutter;
+        var tipScale = WIND.tilt * flutter;
+        c.windTiltX = settleWind(c.windTiltX, my * tipScale, dt, WIND.response);
+        c.windTiltZ = settleWind(c.windTiltZ, -mx * tipScale, dt, WIND.response);
+        var clearance = windTiltClearance(c.w, c.h, c.windTiltX, c.windTiltZ, c.rot + c.windTwist, c.lift);
+        c.windLift = Math.max(clearance / c.h, settleWind(c.windLift, airborne * WIND.lift, dt, WIND.response));
+        c.windTwist = settleWind(c.windTwist, 0, dt, WIND.response);
+        windEnergy = Math.max(windEnergy, Math.hypot(motion.vx, motion.vz) * 600);
+        windPan = clamp((cx - W * 0.5) / (W * 0.5), -1, 1);
+      }
+    });
+  }
 
   function toLocal(c, px, py) {
     var dx = px - c.x, dy = py - c.y;
@@ -470,14 +805,14 @@
   }
 
   function pick(px, py) {
-    for (var i = 0; i < cards.length; i += 1) {
-      if (!cards[i].home && hit(cards[i], px, py)) return cards[i];
-    }
-    for (var j = cards.length - 1; j >= 0; j -= 1) {
-      if (cards[j].home && hit(cards[j], px, py)) return cards[j];
+    var order = cards.slice().sort(function (a, b) { return (b.z || 0) - (a.z || 0); });
+    for (var i = 0; i < order.length; i += 1) {
+      if (hit(order[i], px, py)) return order[i];
     }
     return null;
   }
+
+  function bringToFront(c) { c.z = ++zTop; }
 
   function edgeFade(c) {
     var inside = Math.min(c.x + c.w / 2, W + c.w / 2 - c.x);
@@ -504,6 +839,9 @@
   }
 
   function sendHome(c) {
+    bringToFront(c);
+    c.settleLift = { from: c.lift, to: 0, t: 0, dur: 0.4 };
+    c.liftV = 0;
     c.home = true;
     c.flying = false;
     c.free = false;
@@ -525,8 +863,94 @@
     c.tx = slotRect.cx; c.ty = slotRect.cy; c.trot = 0;
     c.vx *= 0.3; c.vy *= 0.3; c.vrot = 0;
     c.flying = true;
+    bringToFront(c);
+    c.settleLift = { from: c.lift, to: 0, t: 0, dur: 0.4 };
+    c.liftV = 0;
+    wellHint.found = true;
     slotEl.classList.add('is-filled');
     Sound.place();
+  }
+
+  /* ------------------------------------------------------------
+     inspect — the well is a reader. A card dropped into it seats,
+     the other prints shuffle to the side, a scan line develops the
+     print, and the story opens. Closing the story sends it home.
+     ------------------------------------------------------------ */
+  function beginInspect(c) {
+    if (!c || inspect.active) return;
+    inspect.active = true;
+    inspect.hold = false;
+    inspect.card = c;
+    inspect.t = 0;
+    inspect.scanT = 0;
+    inspect.exits = [];
+    c.locked = true;
+    c.home = false;
+    c.flying = false;
+    c.rx = c.tx;
+    c.ry = c.ty;
+    c.restRot = 0;
+    c.settleLift = { from: c.lift, to: 0, t: 0, dur: 0.4 };
+    c.liftV = 0;
+    bringToFront(c);
+
+    var exitX = safe.right - c.w / 2 - 10;
+    var others = cards.filter(function (o) { return o !== c && o.home; });
+    others.sort(function (a, b) { return a.y - b.y; });
+    others.forEach(function (o, i) {
+      inspect.exits.push({ card: o, rx: o.rx, ry: o.ry, restRot: o.restRot });
+      o.locked = true;
+      o.exitTarget = {
+        x: exitX,
+        y: clamp(safe.top + o.h / 2 + (i + 0.5) * (safe.bottom - safe.top) / others.length,
+                 safe.top + o.h / 2, safe.bottom - o.h / 2),
+        rot: o.rot
+      };
+      o.exitAt = performance.now() + i * 70;
+    });
+
+    if (reduceMotion.matches) {
+      inspect.phase = 'open';
+      Story.open(c);
+    } else {
+      inspect.phase = 'scan';
+      Sound.scan();
+    }
+  }
+
+  function endInspect() {
+    if (!inspect.active) return;
+    var c = inspect.card;
+    if (c) {
+      c.locked = true;
+      sendHome(c);
+    }
+    inspect.exits.forEach(function (e, i) {
+      e.card.exitTarget = { x: e.rx, y: e.ry, rot: e.restRot };
+      e.card.exitAt = performance.now() + i * 70;
+    });
+    inspect.phase = 'return';
+    inspect.t = 0;
+    inspect.returnAt = performance.now() + 900;
+  }
+
+  function stepInspect(dt, now) {
+    if (!inspect.active) return;
+    inspect.t += dt;
+    if (inspect.phase === 'scan' && !inspect.hold) {
+      inspect.scanT += dt;
+      if (inspect.scanT >= 1.15) {
+        inspect.phase = 'open';
+        Story.open(inspect.card);
+      }
+    } else if (inspect.phase === 'return' && now >= inspect.returnAt) {
+      cards.forEach(function (c) { c.locked = false; });
+      inspect.active = false;
+      inspect.phase = 'idle';
+      inspect.card = null;
+      inspect.exits = [];
+      kick();
+    }
   }
 
   var downX = 0, downY = 0, moved = false, down = false;
@@ -541,6 +965,11 @@
       pointer.vy = clamp((ny - pointer.y) / dt, -3000, 3000);
     }
     pointer.x = nx; pointer.y = ny; pointer.t = now;
+
+    windLastInput = now;
+    if (e.pointerType === 'mouse' && (e.buttons === 0 || (down && e.buttons === 1)) && !windBlocked()) {
+      sampleWindPointer(windSample, nx, ny, now, WIND, down ? WIND.dragStrength : 1);
+    }
 
     if (down) {
       if (!moved && Math.abs(nx - downX) + Math.abs(ny - downY) > 5) moved = true;
@@ -560,8 +989,9 @@
   }
 
   function onDown(e) {
+    windLastInput = performance.now();
     var c = pick(e.clientX, e.clientY);
-    if (!c) return;
+    if (!c || c.locked) return;
     down = true;
     active = c;
     downX = e.clientX; downY = e.clientY;
@@ -577,6 +1007,7 @@
     }
     c.drag = true;
     c.free = true;
+    bringToFront(c);
     c.grabX = c.x - e.clientX;
     c.grabY = c.y - e.clientY;
     /* the pickup: a small upward pop and a jiggle, as if pinched by a corner */
@@ -589,6 +1020,7 @@
   }
 
   function onUp(e) {
+    windLastInput = performance.now();
     if (!down) return;
     down = false;
     var c = active;
@@ -602,14 +1034,15 @@
     c.drag = false;
 
     if (!moved) {
-      place(c);
-      c.openOnArrive = true;
+      if (c.about) Story.open(c);
+      else { place(c); c.openOnArrive = true; }
       kick();
       return;
     }
 
-    /* the plate is a target: a card let go over it goes in */
-    if (slotRect) {
+    /* the plate is a target: a card let go over it goes in. The About
+       print is a story, not a project, so it is never inspected. */
+    if (!c.about && slotRect) {
       var ox = Math.min(c.x + c.w / 2, slotRect.right) - Math.max(c.x - c.w / 2, slotRect.left);
       var oy = Math.min(c.y + c.h / 2, slotRect.bottom) - Math.max(c.y - c.h / 2, slotRect.top);
       if (ox > 0 && oy > 0 && (ox * oy) / (c.w * c.h) > 0.22) {
@@ -625,14 +1058,16 @@
     c.y = clamp(c.y, safe.top + c.h / 2, safe.bottom - c.h / 2);
     c.rx = c.x; c.ry = c.y;
     c.restRot = c.rot;
-    c.vx *= 0.45; c.vy *= 0.45;
-    c.liftV = Math.min(c.liftV, 0);
+    c.vx = 0; c.vy = 0;
+    c.settleLift = { from: c.lift, to: 0, t: 0, dur: 0.4 };
+    c.liftV = 0;
     c.free = true;
     Sound.place();
     kick();
   }
 
   function onLeave() {
+    resetWind();
     pointer.vx = 0; pointer.vy = 0;
     if (!down) {                /* a held card must not be thrown off-screen */
       pointer.x = -9999; pointer.y = -9999;
@@ -655,8 +1090,6 @@
      lets gravity take it back down with a bounce. Nothing scrolls on its
      own: a sheet stays exactly where it was put.
      ------------------------------------------------------------ */
-  var GRAVITY = 7.4;
-  var BOUNCE = 0.34;
   var storyOpen = false;
 
   var frameNow = 0;
@@ -664,15 +1097,48 @@
 
   function simulate(dt, now) {
     frameNow = now;
+    stepInspect(dt, now);
+    stepBreeze(dt, now);
+    stepWellHint(now);
     var decay = Math.exp(-11 * dt);
     pointer.vx *= decay;
     pointer.vy *= decay;
 
-    windEnergy = 0;
     var calm = reduceMotion.matches || lite;
     calmNow = calm;
+    stepWind(dt, now);
 
     cards.forEach(function (c) {
+      if (c.breeze) {
+        var b = c.breeze;
+        b.t += dt;
+        var bu = clamp((b.t - b.delay) / b.dur, 0, 1);
+        var be = thomasEase(bu);
+        var bdx = b.toX - b.fromX, bdy = b.toY - b.fromY;
+        var blen = Math.hypot(bdx, bdy) || 1;
+        var barc = Math.sin(Math.PI * bu) * b.curve;
+        c.rx = b.fromX + bdx * be - (bdy / blen) * barc;
+        c.ry = b.fromY + bdy * be + (bdx / blen) * barc;
+        c.x = c.rx;
+        c.y = c.ry;
+        c.vx = 0;
+        c.vy = 0;
+        if (bu >= 1) {
+          c.rx = b.toX;
+          c.ry = b.toY;
+          c.x = c.rx;
+          c.y = c.ry;
+          c.breeze = null;
+        }
+      }
+
+      if (c.exitTarget && now >= c.exitAt) {
+        c.rx = c.exitTarget.x;
+        c.ry = c.exitTarget.y;
+        c.restRot = c.exitTarget.rot;
+        c.exitTarget = null;
+      }
+
       if (!c.home) {
         /* in the slot, or flying to it */
         c.vx += (c.tx - c.x) * SLOT_K * dt;
@@ -700,20 +1166,7 @@
         c.x = nx;
         c.y = ny;
       } else {
-        /* on the floor: the cursor's air pushes it, the floor pulls it home */
-        var dx = c.x - pointer.x;
-        var dy = c.y - pointer.y;
-        var dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        if (!lite && dist < WIND_R) {
-          var g = (1 - dist / WIND_R) * (calm ? 0.34 : 1);
-          var ff = g * Math.sqrt(g);
-          c.vx += (pointer.vx * AIR * ff - c.vx) * AIR_PULL * dt;
-          c.vy += (pointer.vy * AIR * ff - c.vy) * AIR_PULL * dt;
-          c.vrot += clamp((dx * pointer.vy - dy * pointer.vx) * ff * TORQUE / (c.w * c.w), -16, 16) * dt;
-          windEnergy = Math.max(windEnergy, Math.sqrt(pointer.vx * pointer.vx + pointer.vy * pointer.vy) * ff);
-          windPan = clamp(dx / 700, -1, 1);
-        }
-
+        /* on the floor: it sits where the air left it */
         c.vx += (c.rx - c.x) * K * dt;
         c.vy += (c.ry - c.y) * K * dt;
         c.vx *= Math.exp(-D * dt);
@@ -736,7 +1189,7 @@
       if (c.openOnArrive && !c.home && c.reveal >= 1 &&
           Math.abs(c.x - c.tx) < 2.5 && Math.abs(c.y - c.ty) < 2.5) {
         c.openOnArrive = false;
-        Story.open(c);
+        beginInspect(c);
       }
 
       /* rotation: the hand tips a held sheet, the floor settles a dropped one */
@@ -750,34 +1203,43 @@
         c.rot = rotTarget; c.vrot = 0;
       }
 
-      /* elevation: held up by the hand, pulled down by gravity otherwise */
+      /* elevation: the hand lifts it; letting go settles it back in 0.4s */
       if (c.drag) {
         c.liftV += (1.15 - c.lift) * 260 * dt;
         c.liftV *= Math.exp(-18 * dt);
         c.lift += c.liftV * dt;
         if (c.lift > 1.4) { c.lift = 1.4; if (c.liftV > 0) c.liftV = 0; }
+        c.settleLift = null;
+      } else if (c.settleLift) {
+        var sl = c.settleLift;
+        sl.t += dt;
+        var k = clamp(sl.t / sl.dur, 0, 1);
+        c.lift = sl.from + (sl.to - sl.from) * thomasEase(k);
+        c.liftV = 0;
+        if (k >= 1) { c.lift = sl.to; c.settleLift = null; }
       } else {
-        c.liftV -= GRAVITY * dt;
-        c.liftV *= Math.exp(-1.15 * dt);
-        c.lift += c.liftV * dt;
-        if (c.lift <= 0) {
-          c.lift = 0;
-          if (Math.abs(c.liftV) > 0.55) {
-            /* impact: a small bounce and a twist as it comes to rest */
-            c.liftV = -c.liftV * BOUNCE;
-            c.vrot += (Math.random() - 0.5) * 0.8;
-          } else {
-            c.liftV = 0;
-          }
-        }
+        c.lift = 0;
+        c.liftV = 0;
       }
+
+      /* paper flex: the near edge lags the sheet's motion */
+      var windVx = c.windMotion.vx * (c.w / 0.58);
+      var windVy = c.windMotion.vz * (c.w / 0.58);
+      var bendTarget = clamp(-(c.vy + windVy) * 0.045 - c.liftV * 2.0, -c.h * 0.085, c.h * 0.085);
+      c.bendV += ((bendTarget - c.bend) * 170 - c.bendV * 15) * dt;
+      c.bend += c.bendV * dt;
+      if (Math.abs(c.bend) < 0.05 && Math.abs(c.bendV) < 0.05) { c.bend = 0; c.bendV = 0; }
+      var bendXTarget = clamp(-(c.vx + windVx) * 0.03, -c.w * 0.055, c.w * 0.055);
+      c.bendXV += ((bendXTarget - c.bendX) * 150 - c.bendXV * 13) * dt;
+      c.bendX += c.bendXV * dt;
+      if (Math.abs(c.bendX) < 0.05 && Math.abs(c.bendXV) < 0.05) { c.bendX = 0; c.bendXV = 0; }
 
       var lean = 1 - Math.exp(-13 * dt);
       c.lx += (c.lxT - c.lx) * lean;
       c.ly += (c.lyT - c.ly) * lean;
 
-      var yawT = calm ? c.yaw0 : c.yaw0 + c.lx * 0.17 + Math.sin(now * 0.00043 + c.i * 1.9) * 0.02;
-      var pitchT = calm ? c.pitch0 : c.pitch0 + c.ly * 0.13 + clamp(c.vx * 0.00016, -0.06, 0.06);
+      var yawT = calm ? c.yaw0 : c.yaw0 + c.lx * 0.17 + c.windTiltZ * 0.16 + Math.sin(now * 0.00043 + c.i * 1.9) * 0.02;
+      var pitchT = calm ? c.pitch0 : c.pitch0 + c.ly * 0.13 + c.windTiltX * 0.22 + clamp(c.vx * 0.00016, -0.06, 0.06);
       var poseEase = 1 - Math.exp(-9 * dt);
       c.yaw += (yawT - c.yaw) * poseEase;
       c.pitch += (pitchT - c.pitch) * poseEase;
@@ -786,7 +1248,135 @@
       c.ax = 0; c.ay = 0; c.asway = 0;
     });
 
+    computeStack();
     if (!lite) stepMotes(dt, now);
+  }
+
+  function cardRectOf(c) {
+    var co = Math.abs(Math.cos(c.rot)), si = Math.abs(Math.sin(c.rot));
+    var hw = (c.w * co + c.h * si) / 2;
+    var hh = (c.w * si + c.h * co) / 2;
+    return { left: c.x - hw, right: c.x + hw, top: c.y - hh, bottom: c.y + hh };
+  }
+
+  /* a sheet dropped across another rests on it: rank decides who is on
+     top, and each sheet above gets a small visual lift and a stronger
+     shadow, so the pile reads as a pile. */
+  function computeStack() {
+    var list = cards.filter(function (c) {
+      return c.home && !c.drag && !c.flying && !c.locked;
+    });
+    list.sort(function (a, b) { return (a.z || 0) - (b.z || 0); });
+    list.forEach(function (c) { c.stackLift = 0; });
+    for (var i = 0; i < list.length; i += 1) {
+      var a = cardRectOf(list[i]);
+      for (var j = i + 1; j < list.length; j += 1) {
+        var b = cardRectOf(list[j]);
+        var ox = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        var oy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        if (ox > 2 && oy > 2) {
+          list[j].stackLift = Math.max(list[j].stackLift, list[i].stackLift + 3.5);
+        }
+      }
+    }
+    list.forEach(function (c) { c.stackLift = Math.min(c.stackLift, 14); });
+  }
+
+  /* ------------------------------------------------------------
+     returning breeze + well hint — the page tidies itself
+     ------------------------------------------------------------ */
+  function stepBreeze(dt, now) {
+    if (lite || reduceMotion.matches || storyOpen || inspect.active || down || document.hidden) return;
+    if (now - windLastInput < 5000) return;
+    if (now - lastBreeze < 18000) return;
+    lastBreeze = now;
+
+    var selected = [];
+    cards.forEach(function (c) {
+      if (!c.home || c.drag || c.locked || c.breeze || c.settleLift || c.flying) return;
+      var r = cardRectOf(c);
+      var edge = Math.min(c.x - safe.left, safe.right - c.x, c.y - safe.top, safe.bottom - c.y);
+      var hidden = false;
+      [heroRect, slotRect].forEach(function (q) {
+        if (!q) return;
+        var ox = Math.min(r.right, q.right) - Math.max(r.left, q.left);
+        var oy = Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top);
+        if (ox > 2 && oy > 2) hidden = true;
+      });
+      if (edge < c.w * 0.8 || hidden) selected.push(c);
+    });
+    if (!selected.length) return;
+
+    selected.sort(function (a, b) { return a.x - b.x; });
+    selected = selected.slice(0, 2);
+    var launched = 0;
+
+    selected.forEach(function (c, i) {
+      var target = null;
+      for (var tries = 0; tries < 28 && !target; tries += 1) {
+        var tx = safe.left + c.w / 2 + Math.random() * (safe.right - safe.left - c.w);
+        var ty = safe.top + c.h / 2 + Math.random() * (safe.bottom - safe.top - c.h);
+        var rr = { left: tx - c.w / 2, right: tx + c.w / 2, top: ty - c.h / 2, bottom: ty + c.h / 2 };
+        var ok = true;
+        [heroRect, slotRect].forEach(function (q) {
+          if (!q) return;
+          var ox = Math.min(rr.right, q.right) - Math.max(rr.left, q.left);
+          var oy = Math.min(rr.bottom, q.bottom) - Math.max(rr.top, q.top);
+          if (ox > -4 && oy > -4) ok = false;
+        });
+        cards.forEach(function (o) {
+          if (o === c || !o.home) return;
+          var oq = cardRectOf(o);
+          var ox = Math.min(rr.right, oq.right) - Math.max(rr.left, oq.left);
+          var oy = Math.min(rr.bottom, oq.bottom) - Math.max(rr.top, oq.top);
+          if (ox > 4 && oy > 4) ok = false;
+        });
+        if (ok) target = { x: tx, y: ty };
+      }
+      if (!target) return;
+      var dx = target.x - c.rx, dy = target.y - c.ry;
+      var dist = Math.hypot(dx, dy);
+      if (dist < 8) return;
+      c.breeze = {
+        fromX: c.rx, fromY: c.ry, toX: target.x, toY: target.y,
+        t: 0, dur: 1.8, delay: launched * 0.18,
+        curve: (Math.random() < 0.5 ? -1 : 1) * Math.min(c.w * 0.25, dist * 0.14)
+      };
+      launched += 1;
+    });
+
+    if (launched) Sound.breeze();
+  }
+
+  function stepWellHint(now) {
+    if (wellHint.found || wellHint.count >= 2) return;
+    if (lite || reduceMotion.matches || storyOpen || inspect.active || down || document.hidden) return;
+    if (!slotRect) return;
+    if (now - windLastInput < 6000) return;
+    if (now - wellHint.last < 16000) return;
+    wellHint.last = now;
+
+    var best = null, bestD = Infinity;
+    cards.forEach(function (c) {
+      if (!c.home || c.drag || c.locked || c.breeze || c.settleLift) return;
+      var d = Math.hypot(c.rx - slotRect.cx, c.ry - slotRect.cy);
+      if (d < bestD) { bestD = d; best = c; }
+    });
+    if (!best || bestD < 30) return;
+
+    var dx = slotRect.cx - best.rx, dy = slotRect.cy - best.ry;
+    var dist = Math.hypot(dx, dy) || 1;
+    var travel = Math.min(dist * 0.3, best.w * 0.6);
+    best.breeze = {
+      fromX: best.rx, fromY: best.ry,
+      toX: best.rx + dx / dist * travel,
+      toY: best.ry + dy / dist * travel,
+      t: 0, dur: 1.4, delay: 0, curve: 0
+    };
+    wellHint.count += 1;
+    slotEl.classList.add('is-hinting');
+    setTimeout(function () { slotEl.classList.remove('is-hinting'); }, 1800);
+    Sound.hover();
   }
 
   /* ------------------------------------------------------------
@@ -895,26 +1485,33 @@
     return cv;
   }
 
-  /* four corners of the sheet, projected */
-  function cardQuad(c, cx, cy, rot, s) {
-    var hw = (c.w / 2) * s, hh = (c.h / 2) * s;
+  /* one point on the sheet, projected. Local units are unscaled;
+     the sheet's scale is applied here. */
+  function cardPoint(c, cx, cy, rot, s, lx, ly) {
+    var x = lx * s, y = ly * s;
     var cyaw = Math.cos(c.yaw), syaw = Math.sin(c.yaw);
     var cp = Math.cos(c.pitch), sp = Math.sin(c.pitch);
     var cr = Math.cos(rot), sr = Math.sin(rot);
-    var src = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]];
-    var out = [];
+    var x1 = x * cyaw;
+    var z1 = -x * syaw;
+    var y2 = y * cp - z1 * sp;
+    var z2 = y * sp + z1 * cp;
+    var k = FOCAL / (CAM + z2);
+    var px = x1 * k, py = y2 * k;
+    return [cx + px * cr - py * sr, cy + px * sr + py * cr];
+  }
 
-    for (var i = 0; i < 4; i += 1) {
-      var x = src[i][0], y = src[i][1];
-      var x1 = x * cyaw;
-      var z1 = -x * syaw;
-      var y2 = y * cp - z1 * sp;
-      var z2 = y * sp + z1 * cp;
-      var k = FOCAL / (CAM + z2);
-      var px = x1 * k, py = y2 * k;
-      out.push([cx + px * cr - py * sr, cy + px * sr + py * cr]);
-    }
-    return out;
+  /* four corners of the sheet, projected. The near edge carries the
+     paper's flex; the far edge carries a quarter of it. */
+  function cardQuad(c, cx, cy, rot, s) {
+    var hw = c.w / 2, hh = c.h / 2;
+    var b = c.bend || 0, bx = c.bendX || 0;
+    return [
+      cardPoint(c, cx, cy, rot, s, -hw + bx * 0.25, -hh + b * 0.25),
+      cardPoint(c, cx, cy, rot, s,  hw + bx * 0.25, -hh + b * 0.25),
+      cardPoint(c, cx, cy, rot, s,  hw + bx,        hh + b),
+      cardPoint(c, cx, cy, rot, s, -hw + bx,        hh + b)
+    ];
   }
 
   function pathQuad(q) {
@@ -960,61 +1557,109 @@
     ctx.restore();
   }
 
+  function warpStrip(img, q, u0, u1) {
+    var w = img.width, h = img.height;
+    var s0 = u0 * w, s1 = u1 * w;
+
+    ctx.save();
+    pathQuad(q);
+    ctx.clip();
+    if (triMap(ctx, s0, 0, s1, 0, s0, h, q[0], q[1], q[3])) ctx.drawImage(img, 0, 0);
+    ctx.restore();
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(q[1][0], q[1][1]);
+    ctx.lineTo(q[2][0], q[2][1]);
+    ctx.lineTo(q[3][0], q[3][1]);
+    ctx.closePath();
+    ctx.clip();
+    if (triMap(ctx, s1, 0, s1, h, s0, h, q[1], q[2], q[3])) ctx.drawImage(img, 0, 0);
+    ctx.restore();
+  }
+
+  /* A flat sheet is one quad. A moving sheet is six vertical strips whose
+     near edge follows a sine, so the paper bends instead of moving as a
+     rigid card. */
+  function drawCardSurface(c, cx, cy, rot, s) {
+    var bend = c.bend || 0, bendX = c.bendX || 0;
+    if (Math.abs(bend) < 0.8 && Math.abs(bendX) < 0.8) {
+      if (Math.abs(c.yaw) < 0.085 && Math.abs(c.pitch) < 0.085) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(rot);
+        ctx.scale(s, s);
+        ctx.drawImage(c.canvas, -c.w / 2, -c.h / 2, c.w, c.h);
+        ctx.restore();
+      } else {
+        warpQuad(c.canvas, cardQuad(c, cx, cy, rot, s));
+      }
+      return;
+    }
+
+    var N = 6;
+    var hw = c.w / 2, hh = c.h / 2;
+    for (var i = 0; i < N; i += 1) {
+      var u0 = Math.max(0, i / N - 0.002);
+      var u1 = Math.min(1, (i + 1) / N + 0.002);
+      var um = (i + 0.5) / N;
+      var b = bend * Math.sin(Math.PI * um);
+      var bx = bendX * Math.sin(Math.PI * um);
+      var lx0 = -hw + (i / N) * c.w;
+      var lx1 = -hw + ((i + 1) / N) * c.w;
+      var q = [
+        cardPoint(c, cx, cy, rot, s, lx0 + bx * 0.25, -hh + b * 0.25),
+        cardPoint(c, cx, cy, rot, s, lx1 + bx * 0.25, -hh + b * 0.25),
+        cardPoint(c, cx, cy, rot, s, lx1 + bx, hh + b),
+        cardPoint(c, cx, cy, rot, s, lx0 + bx, hh + b)
+      ];
+      warpStrip(c.canvas, q, u0, u1);
+    }
+  }
+
+  function expandQuad(q, fx, fy, cx, cy) {
+    return q.map(function (p) {
+      return [cx + (p[0] - cx) * fx, cy + (p[1] - cy) * fy];
+    });
+  }
+
   function drawCastShadow(c, liftN, rot, cx, cy, s) {
     var baseA = ctx.globalAlpha;
     var off = 3 + liftN * 52;
     var ox = off * 0.55, oy = off * 0.95;
-    var wide = clamp(liftN, 0, 1);
+    var wide = clamp(liftN + Math.abs(c.bend || 0) / (c.h * 1.4), 0, 1);
+    var q = cardQuad(c, cx + ox, cy + oy, rot, s * (1 + wide * 0.02));
 
-    var cw1 = (c.shadowCast.width / 2) * (1 + wide * 0.12);
-    var ch1 = (c.shadowCast.height / 2) * (1 + wide * 0.12);
-    var cw2 = (c.shadowSoft.width / 2) * (1.015 + wide * 0.01);
-    var ch2 = (c.shadowSoft.height / 2) * (1.015 + wide * 0.01);
-
-    ctx.save();
-    ctx.translate(cx + ox, cy + oy);
-    ctx.rotate(rot);
-    ctx.scale(s, s);
-
-    /* the far shadow only exists once the sheet leaves the surface */
     if (wide > 0.02) {
+      var qc = expandQuad(q, (c.shadowCast.width / 2) / c.w, (c.shadowCast.height / 2) / c.h, cx + ox, cy + oy);
       ctx.globalAlpha = baseA * wide * 0.30;
-      ctx.drawImage(c.shadowCast, -cw1 / 2, -ch1 / 2, cw1, ch1);
+      warpQuad(c.shadowCast, qc);
     }
 
+    var qs = expandQuad(q, (c.shadowSoft.width / 2) / c.w, (c.shadowSoft.height / 2) / c.h, cx + ox, cy + oy);
     ctx.globalAlpha = baseA * 0.48 * (1 - wide * 0.55);
-    ctx.drawImage(c.shadowSoft, -cw2 / 2, -ch2 / 2, cw2, ch2);
-
+    warpQuad(c.shadowSoft, qs);
     ctx.globalAlpha = baseA;
-    ctx.restore();
   }
 
   function drawCard(c) {
-    var fade = c.home && !c.free ? Math.min(edgeFade(c), heroFade(c), slotFade(c)) : 1;
+    var lifted = c.drag || c.lift > 0.18 || c.windLift > 0.12;
+    var fade = c.home && !c.free && !lifted ? Math.min(edgeFade(c), heroFade(c), slotFade(c)) : 1;
     if (fade < 0.02) return;
     if (fade < 1) ctx.globalAlpha = fade;
 
-    var liftN = clamp(c.lift, 0, 1.2);
+    var stack = c.stackLift || 0;
+    var liftN = clamp(c.lift + (c.windLift || 0) + stack / c.h, 0, 1.2);
     var s = 1 + liftN * 0.075;
-    var rot = c.rot + (c.asway || 0);
+    var rot = c.rot + (c.asway || 0) + (c.windTwist || 0);
     var cx = c.x + (c.ax || 0);
-    var cy = c.y + (c.ay || 0);
+    var cy = c.y + (c.ay || 0) - stack;
+    var shadowY = c.y + (c.ay || 0);
 
-    drawCastShadow(c, liftN, rot, cx, cy, s);
+    drawCastShadow(c, liftN, rot, cx, shadowY, s);
 
+    drawCardSurface(c, cx, cy, rot, s);
     var q = cardQuad(c, cx, cy, rot, s);
-
-    /* a sheet that is barely turned needs no perspective split */
-    if (Math.abs(c.yaw) < 0.085 && Math.abs(c.pitch) < 0.085) {
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(rot);
-      ctx.scale(s, s);
-      ctx.drawImage(c.canvas, -c.w / 2, -c.h / 2, c.w, c.h);
-      ctx.restore();
-    } else {
-      warpQuad(c.canvas, q);
-    }
 
     /* everything that lies on the sheet shares a single clip */
     var turn = clamp(Math.abs(c.yaw) * 3.4 + liftN * 0.55, 0, 1);
@@ -1087,7 +1732,7 @@
 
     var liftAny = false;
     for (var li = 0; li < cards.length; li += 1) {
-      if (cards[li].drag || cards[li].lift > 0.18) { liftAny = true; break; }
+      if (cards[li].drag || cards[li].lift > 0.18 || cards[li].windLift > 0.12) { liftAny = true; break; }
     }
     if (liftAny !== liftedNow) {
       liftedNow = liftAny;
@@ -1097,13 +1742,34 @@
     if (!lite) drawMotes(now);
 
     var order = cards.slice().sort(function (a, b) {
-      if (a.home !== b.home) return a.home ? -1 : 1;
-      if (a.flying !== b.flying) return a.flying ? 1 : -1;
-      if (Math.abs(a.lift - b.lift) > 0.05) return a.lift - b.lift;
-      return a.y - b.y;
+      return (a.z || 0) - (b.z || 0) || a.y - b.y;
     });
 
     for (var i = 0; i < order.length; i += 1) drawCard(order[i]);
+    if (inspect.active && inspect.phase === 'scan' && inspect.card) drawScan(inspect.card, inspect.scanT);
+  }
+
+  function drawScan(c, t) {
+    var p = t < 0.52 ? t / 0.52 : 1 - clamp((t - 0.52) / 0.52, 0, 1);
+    var cx = c.x + (c.ax || 0);
+    var cy = c.y + (c.ay || 0) - (c.stackLift || 0);
+    var top = cy - c.h / 2, left = cx - c.w / 2;
+    var lineY = top + p * c.h;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(left, top, c.w, c.h);
+    ctx.clip();
+    ctx.fillStyle = 'rgba(6,5,4,0.42)';
+    ctx.fillRect(left, top, c.w, Math.max(0, lineY - top));
+    var g = ctx.createLinearGradient(0, lineY - 10, 0, lineY + 10);
+    g.addColorStop(0, 'rgba(255,250,240,0)');
+    g.addColorStop(0.45, 'rgba(255,250,240,0.20)');
+    g.addColorStop(0.5, 'rgba(255,250,240,0.95)');
+    g.addColorStop(0.55, 'rgba(255,250,240,0.20)');
+    g.addColorStop(1, 'rgba(255,250,240,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(left, lineY - 10, c.w, 20);
+    ctx.restore();
   }
 
   /* ------------------------------------------------------------
@@ -1143,6 +1809,11 @@
     for (var i = 0; i < cards.length; i += 1) {
       var c = cards[i];
       if (c.drag) return true;
+      if (windState.amount > 0.001) return true;
+      if (c.settleLift || c.breeze || c.exitTarget) return true;
+      if (Math.abs(c.windTiltX) > 0.002 || Math.abs(c.windTiltZ) > 0.002 ||
+          Math.abs(c.windLift) > 0.002 || Math.abs(c.windTwist) > 0.002) return true;
+      if (Math.abs(c.bend) > 0.1 || Math.abs(c.bendV) > 0.1) return true;
       if (c.lift > 0.002 || Math.abs(c.liftV) > 0.01) return true;
       if (Math.abs(c.x - c.rx) > 0.6 || Math.abs(c.y - c.ry) > 0.6) return true;
       if (Math.abs(c.vx) > 2 || Math.abs(c.vy) > 2) return true;
@@ -1379,6 +2050,39 @@
       select: function () { paper(0.1); },
       place: function () { paper(0.16); blip(392, 0.16, 'sine', 0.035); },
       hover: function () { paper(0.04); },
+      scan: function () {
+        if (!built || !enabled) return;
+        var t = ac.currentTime;
+        var src = ac.createBufferSource();
+        src.buffer = noise(0.8);
+        var bp = ac.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.Q.value = 2.1;
+        bp.frequency.setValueAtTime(420, t);
+        bp.frequency.exponentialRampToValueAtTime(3800, t + 0.55);
+        var g = ac.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.09, t + 0.08);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.95);
+        src.connect(bp); bp.connect(g); g.connect(master);
+        src.start(t); src.stop(t + 1);
+      },
+      breeze: function () {
+        if (!built || !enabled) return;
+        var t = ac.currentTime;
+        var src = ac.createBufferSource();
+        src.buffer = noise(0.7);
+        var bp = ac.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = 900;
+        bp.Q.value = 0.7;
+        var g = ac.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.05, t + 0.2);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
+        src.connect(bp); bp.connect(g); g.connect(master);
+        src.start(t); src.stop(t + 1.5);
+      },
       wind: function (energy, pan) {
         if (!built || !windGain || !ac) return;
         var amount = enabled ? clamp(energy / 1500, 0, 1) : 0;
@@ -1439,6 +2143,7 @@
       root.classList.remove('is-open');
       root.setAttribute('aria-hidden', 'true');
       if (lastFocus && lastFocus.focus) lastFocus.focus();
+      if (inspect.active) endInspect();
     }
 
     if (root) {
@@ -1513,6 +2218,13 @@
   canvas.addEventListener('pointercancel', onUp);
   canvas.addEventListener('pointerleave', onLeave);
   canvas.addEventListener('pointerenter', onMove, { passive: true });
+  window.addEventListener('blur', resetWind);
+  window.addEventListener('wheel', function () { windLastInput = performance.now(); }, { passive: true });
+  window.addEventListener('keydown', function () { windLastInput = performance.now(); });
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) resetWind();
+  });
+  if (reduceMotion.addEventListener) reduceMotion.addEventListener('change', resetWind);
 
   var pending = 0;
   function onResize() {
@@ -1530,12 +2242,54 @@
           return {
             i: c.i, x: c.x + c.ax, y: c.y + c.ay, rx: c.rx, ry: c.ry,
             lift: c.lift, rot: c.rot, vx: c.vx, vy: c.vy, vrot: c.vrot,
-            home: c.home, free: c.free, drag: c.drag, reveal: c.reveal
+            home: c.home, free: c.free, drag: c.drag, reveal: c.reveal,
+            wx: c.windMotion.dx, wy: c.windMotion.dz,
+            wdyaw: c.windMotion.dyaw, wspin: c.windMotion.spinVelocity,
+            wvx: c.windMotion.vx, wvz: c.windMotion.vz,
+            wtiltx: c.windTiltX, wtiltz: c.windTiltZ,
+            wlift: c.windLift, twist: c.windTwist, bend: c.bend, ay: c.ay,
+            bendX: c.bendX, stack: c.stackLift, locked: c.locked, z: c.z,
+            breeze: !!c.breeze, settle: !!c.settleLift,
+            fade: (c.home && !c.free) ? Math.min(edgeFade(c), heroFade(c), slotFade(c)) : 1
           };
         });
       },
       place: place,
-      sendHome: sendHome
+      sendHome: sendHome,
+      wind: function () {
+        return {
+          amount: windState.amount, active: windState.active,
+          x: windState.x, y: windState.y, strokeId: windState.strokeId,
+          idle: Math.round(performance.now() - windLastInput),
+          sinceBreeze: Math.round(performance.now() - lastBreeze),
+          gustX: windSample.gustX, gustY: windSample.gustY,
+          gustTime: windSample.gustTime, svx: windSample.vx, svy: windSample.vy
+        };
+      },
+      story: function () {
+        return {
+          open: storyOpen,
+          title: (document.getElementById('storyTitle') || {}).textContent || ''
+        };
+      },
+      inspect: function () {
+        return {
+          active: inspect.active, phase: inspect.phase,
+          card: inspect.card ? inspect.card.i : -1, scanT: inspect.scanT
+        };
+      },
+      well: function () {
+        return {
+          found: wellHint.found, count: wellHint.count,
+          hinting: slotEl.classList.contains('is-hinting')
+        };
+      },
+      holdScan: function (t) {
+        inspect.phase = 'scan';
+        inspect.scanT = t;
+        inspect.hold = true;
+        kick();
+      }
     };
   }
 
