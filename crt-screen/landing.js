@@ -2028,7 +2028,7 @@
       hp.frequency.value = 2600;
       var g = ac.createGain();
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.016, t + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.035, t + 0.004);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.035);
       src.connect(hp); hp.connect(g); g.connect(master);
       src.start(t); src.stop(t + 0.05);
@@ -2046,11 +2046,11 @@
       bp.frequency.exponentialRampToValueAtTime(2600, t + 0.12);
       var g = ac.createGain();
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.07, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.13, t + 0.012);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
       src.connect(bp); bp.connect(g); g.connect(master);
       src.start(t); src.stop(t + 0.18);
-      blip(330, 0.09, 'sine', 0.028);
+      blip(330, 0.09, 'sine', 0.05);
     }
 
     function drop() {
@@ -2064,7 +2064,7 @@
       lp.frequency.exponentialRampToValueAtTime(500, t + 0.1);
       var g = ac.createGain();
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.08, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.15, t + 0.006);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
       src.connect(lp); lp.connect(g); g.connect(master);
       src.start(t); src.stop(t + 0.15);
@@ -2074,7 +2074,7 @@
       o.frequency.exponentialRampToValueAtTime(72, t + 0.1);
       var og = ac.createGain();
       og.gain.setValueAtTime(0.0001, t);
-      og.gain.exponentialRampToValueAtTime(0.045, t + 0.01);
+      og.gain.exponentialRampToValueAtTime(0.085, t + 0.01);
       og.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
       o.connect(og); og.connect(master);
       o.start(t); o.stop(t + 0.15);
@@ -2091,12 +2091,12 @@
       bp.Q.value = 1.6;
       var g = ac.createGain();
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.09, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.16, t + 0.006);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
       src.connect(bp); bp.connect(g); g.connect(master);
       src.start(t); src.stop(t + 0.12);
-      blip(523, 0.07, 'triangle', 0.045);
-      blip(784, 0.12, 'sine', 0.032, t + 0.055);
+      blip(523, 0.07, 'triangle', 0.08);
+      blip(784, 0.12, 'sine', 0.055, t + 0.055);
     }
 
     function story() {
@@ -2111,12 +2111,12 @@
       bp.frequency.exponentialRampToValueAtTime(2400, t + 0.35);
       var g = ac.createGain();
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.045, t + 0.06);
+      g.gain.exponentialRampToValueAtTime(0.09, t + 0.06);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
       src.connect(bp); bp.connect(g); g.connect(master);
       src.start(t); src.stop(t + 0.55);
-      blip(262, 0.25, 'sine', 0.035);
-      blip(392, 0.3, 'sine', 0.024, t + 0.08);
+      blip(262, 0.25, 'sine', 0.06);
+      blip(392, 0.3, 'sine', 0.045, t + 0.08);
     }
 
     function close() {
@@ -2131,11 +2131,11 @@
       bp.frequency.exponentialRampToValueAtTime(600, t + 0.3);
       var g = ac.createGain();
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.035, t + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.07, t + 0.05);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
       src.connect(bp); bp.connect(g); g.connect(master);
       src.start(t); src.stop(t + 0.45);
-      blip(196, 0.22, 'sine', 0.026);
+      blip(196, 0.22, 'sine', 0.05);
     }
 
     function shuffle() {
@@ -2149,7 +2149,7 @@
       bp.Q.value = 0.7;
       var g = ac.createGain();
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.03, t + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.06, t + 0.05);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
       src.connect(bp); bp.connect(g); g.connect(master);
       src.start(t); src.stop(t + 0.6);
@@ -2159,18 +2159,23 @@
       soundBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
     }
 
-    function enable() {
+    function start() {
       build();
       if (!ac) return;
       if (ac.state === 'suspended') ac.resume();
       enabled = true;
       master.gain.cancelScheduledValues(ac.currentTime);
-      master.gain.setTargetAtTime(0.9, ac.currentTime, 0.5);
+      master.gain.setTargetAtTime(0.9, ac.currentTime, 0.05);
+      setPressed(true);
+    }
+
+    function enable() {
+      start();
+      if (!ac) return;
       try { localStorage.setItem(PREF, '1'); } catch (e) {}
       paper(0.12);
       blip(392, 0.16, 'sine', 0.09);
-      setTimeout(function () { blip(587, 0.22, 'sine', 0.07); }, 90);
-      setPressed(true);
+      blip(587, 0.22, 'sine', 0.07, ac.currentTime + 0.09);
     }
 
     function disable() {
@@ -2185,22 +2190,45 @@
       else enable();
     });
 
-    var wants = false;
-    try { wants = localStorage.getItem(PREF) === '1'; } catch (e) {}
-    if (wants) {
+    function fromToggle(e) {
+      return soundBtn && e.target && soundBtn.contains(e.target);
+    }
+
+    var pref = null;
+    try { pref = localStorage.getItem(PREF); } catch (e) {}
+    if (pref === '1') {
       setPressed(true);
-      var kick = function () {
-        window.removeEventListener('pointerdown', kick);
-        window.removeEventListener('keydown', kick);
-        if (!enabled) enable();
+      var kick = function (e) {
+        if (fromToggle(e)) return;
+        window.removeEventListener('pointerdown', kick, true);
+        window.removeEventListener('keydown', kick, true);
+        if (!enabled) start();
       };
-      window.addEventListener('pointerdown', kick);
-      window.addEventListener('keydown', kick);
+      window.addEventListener('pointerdown', kick, true);
+      window.addEventListener('keydown', kick, true);
+    } else if (pref !== '0') {
+      /* first visit: arm the first gesture, so the card sounds just work;
+         the toggle still mutes, and a mute is remembered */
+      var arm = function (e) {
+        if (fromToggle(e)) return;
+        window.removeEventListener('pointerdown', arm, true);
+        window.removeEventListener('keydown', arm, true);
+        if (!enabled) start();
+      };
+      window.addEventListener('pointerdown', arm, true);
+      window.addEventListener('keydown', arm, true);
     }
 
     return {
       enable: enable,
       disable: disable,
+      state: function () {
+        return {
+          enabled: enabled, built: built,
+          state: ac ? ac.state : 'none',
+          master: master ? master.gain.value : 0
+        };
+      },
       select: function () { paper(0.1); },
       hover: function () { paper(0.04); },
       tick: tick,
@@ -2455,6 +2483,7 @@
           hinting: slotEl.classList.contains('is-hinting')
         };
       },
+      sound: Sound.state,
       holdScan: function (t) {
         inspect.phase = 'scan';
         inspect.scanT = t;
