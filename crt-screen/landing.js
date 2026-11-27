@@ -1889,7 +1889,7 @@
      ------------------------------------------------------------ */
   var Sound = (function () {
     var PREF = 'zstudio:sound';
-    var ac = null, master = null, ambient = null;
+    var ac = null, master = null, ambient = null, sfx = null;
     var windGain = null, windPan = null, windFilter = null;
     var enabled = false, built = false;
 
@@ -1921,7 +1921,18 @@
       ac = new AC();
       master = ac.createGain();
       master.gain.value = 0;
-      master.connect(ac.destination);
+      var limiter = ac.createDynamicsCompressor();
+      limiter.threshold.value = -14;
+      limiter.knee.value = 10;
+      limiter.ratio.value = 4;
+      limiter.attack.value = 0.004;
+      limiter.release.value = 0.25;
+      master.connect(limiter);
+      limiter.connect(ac.destination);
+
+      sfx = ac.createGain();
+      sfx.gain.value = 2.4;
+      sfx.connect(master);
 
       ambient = ac.createGain();
       ambient.gain.value = 1;
@@ -1929,7 +1940,7 @@
 
       /* the harmonic ladder is what makes this audible on laptop and phone
          speakers — a bare 55 Hz fundamental is silent on both */
-      [[55, 0.042], [110, 0.026], [165, 0.015], [220, 0.008]].forEach(function (p) {
+      [[55, 0.030], [110, 0.019], [165, 0.011], [220, 0.006]].forEach(function (p) {
         var o = ac.createOscillator();
         o.type = 'sine';
         o.frequency.value = p[0];
@@ -1948,7 +1959,7 @@
       lp.frequency.value = 900;
       lp.Q.value = 0.4;
       var bedGain = ac.createGain();
-      bedGain.gain.value = 0.26;
+      bedGain.gain.value = 0.17;
       bed.connect(lp);
       lp.connect(bedGain);
       bedGain.connect(ambient);
@@ -1992,7 +2003,7 @@
       g.gain.exponentialRampToValueAtTime(gain || 0.05, t + 0.012);
       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       o.connect(g);
-      g.connect(master);
+      g.connect(sfx);
       o.start(t);
       o.stop(t + dur + 0.02);
     }
@@ -2012,7 +2023,7 @@
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
       src.connect(bp);
       bp.connect(g);
-      g.connect(master);
+      g.connect(sfx);
       src.start(t);
       src.stop(t + 0.14);
     }
@@ -2028,9 +2039,9 @@
       hp.frequency.value = 2600;
       var g = ac.createGain();
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.035, t + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.05, t + 0.004);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.035);
-      src.connect(hp); hp.connect(g); g.connect(master);
+      src.connect(hp); hp.connect(g); g.connect(sfx);
       src.start(t); src.stop(t + 0.05);
     }
 
@@ -2048,7 +2059,7 @@
       g.gain.setValueAtTime(0.0001, t);
       g.gain.exponentialRampToValueAtTime(0.13, t + 0.012);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
-      src.connect(bp); bp.connect(g); g.connect(master);
+      src.connect(bp); bp.connect(g); g.connect(sfx);
       src.start(t); src.stop(t + 0.18);
       blip(330, 0.09, 'sine', 0.05);
     }
@@ -2066,7 +2077,7 @@
       g.gain.setValueAtTime(0.0001, t);
       g.gain.exponentialRampToValueAtTime(0.15, t + 0.006);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
-      src.connect(lp); lp.connect(g); g.connect(master);
+      src.connect(lp); lp.connect(g); g.connect(sfx);
       src.start(t); src.stop(t + 0.15);
       var o = ac.createOscillator();
       o.type = 'sine';
@@ -2076,7 +2087,7 @@
       og.gain.setValueAtTime(0.0001, t);
       og.gain.exponentialRampToValueAtTime(0.085, t + 0.01);
       og.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
-      o.connect(og); og.connect(master);
+      o.connect(og); og.connect(sfx);
       o.start(t); o.stop(t + 0.15);
     }
 
@@ -2093,7 +2104,7 @@
       g.gain.setValueAtTime(0.0001, t);
       g.gain.exponentialRampToValueAtTime(0.16, t + 0.006);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
-      src.connect(bp); bp.connect(g); g.connect(master);
+      src.connect(bp); bp.connect(g); g.connect(sfx);
       src.start(t); src.stop(t + 0.12);
       blip(523, 0.07, 'triangle', 0.08);
       blip(784, 0.12, 'sine', 0.055, t + 0.055);
@@ -2113,7 +2124,7 @@
       g.gain.setValueAtTime(0.0001, t);
       g.gain.exponentialRampToValueAtTime(0.09, t + 0.06);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
-      src.connect(bp); bp.connect(g); g.connect(master);
+      src.connect(bp); bp.connect(g); g.connect(sfx);
       src.start(t); src.stop(t + 0.55);
       blip(262, 0.25, 'sine', 0.06);
       blip(392, 0.3, 'sine', 0.045, t + 0.08);
@@ -2133,7 +2144,7 @@
       g.gain.setValueAtTime(0.0001, t);
       g.gain.exponentialRampToValueAtTime(0.07, t + 0.05);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
-      src.connect(bp); bp.connect(g); g.connect(master);
+      src.connect(bp); bp.connect(g); g.connect(sfx);
       src.start(t); src.stop(t + 0.45);
       blip(196, 0.22, 'sine', 0.05);
     }
@@ -2151,7 +2162,7 @@
       g.gain.setValueAtTime(0.0001, t);
       g.gain.exponentialRampToValueAtTime(0.06, t + 0.05);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
-      src.connect(bp); bp.connect(g); g.connect(master);
+      src.connect(bp); bp.connect(g); g.connect(sfx);
       src.start(t); src.stop(t + 0.6);
     }
 
@@ -2226,7 +2237,8 @@
         return {
           enabled: enabled, built: built,
           state: ac ? ac.state : 'none',
-          master: master ? master.gain.value : 0
+          master: master ? master.gain.value : 0,
+          sfx: sfx ? sfx.gain.value : 0
         };
       },
       select: function () { paper(0.1); },
@@ -2252,7 +2264,7 @@
         g.gain.setValueAtTime(0.0001, t);
         g.gain.exponentialRampToValueAtTime(0.09, t + 0.08);
         g.gain.exponentialRampToValueAtTime(0.0001, t + 0.95);
-        src.connect(bp); bp.connect(g); g.connect(master);
+        src.connect(bp); bp.connect(g); g.connect(sfx);
         src.start(t); src.stop(t + 1);
       },
       breeze: function () {
@@ -2266,7 +2278,7 @@
         bp.Q.value = 0.7;
         var g = ac.createGain();
         g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(0.05, t + 0.2);
+        g.gain.exponentialRampToValueAtTime(0.04, t + 0.2);
         g.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
         src.connect(bp); bp.connect(g); g.connect(master);
         src.start(t); src.stop(t + 1.5);
@@ -2275,7 +2287,7 @@
         if (!built || !windGain || !ac) return;
         var amount = enabled ? clamp(energy / 1500, 0, 1) : 0;
         var t = ac.currentTime;
-        windGain.gain.setTargetAtTime(amount * amount * 0.32, t, 0.12);
+        windGain.gain.setTargetAtTime(amount * amount * 0.24, t, 0.12);
         if (windPan) windPan.pan.setTargetAtTime(clamp(pan, -1, 1), t, 0.15);
         if (windFilter) windFilter.frequency.setTargetAtTime(700 + amount * 700, t, 0.2);
       }
