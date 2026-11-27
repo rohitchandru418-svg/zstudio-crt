@@ -24,34 +24,34 @@
       blurb: 'Minsky is a product studio building simple, thoughtful tech systems for your ideas. We design, develop and deploy web apps \u2014 small team, long engagements, and a bias for the tactile detail.'
     },
     {
-      art: 0,
-      title: 'Halcyon', year: '2026', kind: 'Web \u00b7 Identity',
-      blurb: 'A slow-reading index for an architecture practice. Plans unfold as you scroll; nothing announces itself until you stop.'
+      img: 'works/ai-readiness.webp',
+      title: 'AI Readiness', year: '2026', kind: 'AI Platform \u00b7 StartupTN',
+      blurb: 'Building AI-assisted workflows for smarter government programs.'
     },
     {
-      art: 1,
-      title: 'Meridian', year: '2026', kind: 'Web \u00b7 Product',
-      blurb: 'Ticketing for a chamber music festival, built around one long scroll and a seating plan that breathes.'
+      img: 'works/fametn-crm.webp',
+      title: 'FaMeTN CRM', year: '2026', kind: 'CRM \u00b7 FaMeTN',
+      blurb: 'A centralised CRM for managing MSME engagement and business facilitation.'
     },
     {
-      art: 2,
-      title: 'Vellum', year: '2025', kind: 'Web \u00b7 Editorial',
-      blurb: 'A reading room for a small press. One typeface, real paper grain, and a column that never fights the text.'
+      img: 'works/coord.webp',
+      title: 'COORD', year: '2026', kind: 'CRM \u00b7 COORD',
+      blurb: 'A dynamic website and a simple CRM for a craft community platform.'
     },
     {
-      art: 3,
-      title: 'Quarry', year: '2025', kind: 'Web \u00b7 Archive',
-      blurb: 'A materials library: 240 stone samples, each photographed under the same lamp so the comparison is honest.'
+      img: 'works/petition.webp',
+      title: 'Petition Management', year: '2026', kind: 'Grievance Redressal',
+      blurb: 'An AI-assisted petition management platform for citizen grievances.'
     },
     {
-      art: 4,
-      title: 'Signal', year: '2024', kind: 'Web \u00b7 Audio',
-      blurb: 'An archive of field recordings, played back through a waveform drawn by hand and set in motion by the sound.'
+      img: 'works/filmster.webp',
+      title: 'Filmster', year: '2026', kind: 'Digital ID System',
+      blurb: 'A digital identity platform for the film industry.'
     },
     {
-      art: 5,
-      title: 'Terrain', year: '2024', kind: 'Web \u00b7 Interactive',
-      blurb: 'A mapping tool for walking artists. A route becomes an elevation profile you can read at a glance.'
+      img: 'works/tngss.webp',
+      title: 'TNGSS', year: '2026', kind: 'Mobile App',
+      blurb: 'A sleek summit app for networking, scheduling, and startup discovery.'
     }
   ];
 
@@ -254,6 +254,36 @@
   var DPR_CAP = 1.5;
   var DPR = Math.min(DPR_CAP, window.devicePixelRatio || 1);
 
+  var IMG_CACHE = {};
+  function artworkImage(src, w, h) {
+    var img = IMG_CACHE[src];
+    if (!img || !img.complete || !img.naturalWidth) return null;
+    var c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    var g = c.getContext('2d');
+    var s = Math.max(w / img.naturalWidth, h / img.naturalHeight);
+    var dw = img.naturalWidth * s, dh = img.naturalHeight * s;
+    g.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+    return c;
+  }
+
+  function preloadImages() {
+    WORKS.forEach(function (work) {
+      if (!work.img || IMG_CACHE[work.img]) return;
+      var img = new Image();
+      IMG_CACHE[work.img] = img;
+      img.onload = rebuildCards;
+      img.src = work.img;
+    });
+  }
+
+  function rebuildCards() {
+    if (!cards.length) return;
+    cards.forEach(function (c) { c.canvas = buildCard(c.work, c.i, c.w, c.h); });
+    kick();
+  }
+
   function buildCard(work, index, cw, ch) {
     var c = document.createElement('canvas');
     c.width = Math.round(cw * 2);
@@ -286,7 +316,9 @@
     var ph = ch - pad - cw * 0.215;
 
     var rnd = mulberry32(1013 + index * 7919);
-    var art = artwork(work.art === undefined ? index : work.art, 640, Math.round(640 * ph / pw), rnd);
+    var artW = 640, artH = Math.round(640 * ph / pw);
+    var art = (work.img && artworkImage(work.img, artW, artH)) ||
+              artwork(work.art === undefined ? index : work.art, artW, artH, rnd);
 
     g.save();
     g.beginPath();
@@ -2267,6 +2299,7 @@
 
   window.addEventListener('resize', onResize, { passive: true });
   window.addEventListener('orientationchange', onResize, { passive: true });
+  preloadImages();
 
   /* hold the curtain for the webfonts so captions are never drawn in fallback */
   var fontsReady = document.fonts && document.fonts.ready;
